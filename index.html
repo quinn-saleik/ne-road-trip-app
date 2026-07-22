@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+  BACKLOG for next iteration:
+  - Podcasts page: only 2 test shows loaded (Stuff You Should Know, Swiftologist) — full list TBD
+  - Budget tab: spreadsheet sheet is empty, no data yet
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Quinn & Andrew's NE Road Trip 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+:root{
+  --cream:#FBF3E7;
+  --cream2:#F3E4CE;
+  --paper:#FFFBF4;
+  --rust:#C1502E;
+  --rust-dark:#9C3D22;
+  --pumpkin:#E08E45;
+  --mustard:#D4A017;
+  --maroon:#6B2737;
+  --forest:#4A5D3A;
+  --brown:#4A3428;
+  --text:#3B2A1E;
+  --muted:#8A7358;
+  --shadow: 0 8px 24px rgba(75,45,25,0.12);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Quicksand',sans-serif;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(224,142,69,0.15), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(107,39,55,0.12), transparent 45%),
+    radial-gradient(rgba(75,45,25,0.05) 1px, transparent 1px),
+    linear-gradient(160deg,#FBF3E7 0%,#F3E4CE 100%);
+  background-size:auto, auto, 16px 16px, auto;
+  color:var(--text);
+  min-height:100vh;
+  padding-bottom:78px;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:'Playfair Display',serif; margin:0 0 8px; color:var(--maroon);}
+p{line-height:1.5;}
+a{color:inherit;}
+button{font-family:'Quicksand',sans-serif; transition:transform .12s;}
+button:active{transform:scale(0.92) rotate(-1.5deg);}
+.view{display:none; padding:20px 16px 24px; max-width:720px; margin:0 auto;}
+.view.active{display:block; animation:viewIn .38s cubic-bezier(.22,1,.36,1);}
+@keyframes viewIn{from{opacity:0; transform:translateY(14px) scale(0.97);} to{opacity:1; transform:translateY(0) scale(1);}}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:linear-gradient(135deg,var(--maroon),var(--rust-dark));
+  color:var(--cream);
+  padding:14px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+  box-shadow:0 2px 10px rgba(0,0,0,0.15);
+}
+.topbar .brand{font-family:'Playfair Display',serif; font-weight:700; font-size:1.05rem; display:flex; align-items:center; gap:8px;}
+.topbar .back{background:none; border:none; color:var(--cream); font-size:1.4rem; cursor:pointer; padding:0 6px;}
+
+/* ---------- Landing ---------- */
+#view-home.view{padding:0; max-width:none;}
+.hero{
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  text-align:center; padding:36px 24px 52px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(212,160,23,0.22), transparent 35%),
+    radial-gradient(circle at 80% 30%, rgba(193,80,46,0.2), transparent 40%),
+    linear-gradient(180deg,#6B2737 0%,#9C3D22 42%,#C1502E 72%,#E08E45 100%);
+  color:var(--cream);
+  position:relative; overflow:hidden; z-index:0;
+}
+.hero .leaves{position:absolute; inset:0; font-size:1.6rem; opacity:0.18; pointer-events:none; line-height:2.4; z-index:-1;}
+.hero-wave{position:absolute; bottom:-1px; left:0; width:100%; height:28px; display:block;}
+.hero-badge{
+  font-weight:700; text-transform:uppercase;
+  background:var(--mustard); color:var(--maroon); border:1px solid rgba(255,255,255,0.4);
+  padding:6px 16px; border-radius:999px; font-size:0.75rem; letter-spacing:1.5px;
+  margin-bottom:14px; box-shadow:0 4px 10px rgba(0,0,0,0.2);
+}
+.hero h1{color:var(--cream); font-size:2.5rem; line-height:1.15; margin-bottom:8px; text-shadow:0 2px 12px rgba(0,0,0,0.2); max-width:100%;}
+.hero p.sub{font-size:1.02rem; opacity:0.92; max-width:420px; margin:0 auto 22px;}
+.btn-primary{
+  background:var(--mustard); color:var(--maroon); border:none;
+  padding:14px 30px; border-radius:999px; font-size:1.05rem; font-weight:700;
+  cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,0.25);
+  font-family:'Quicksand',sans-serif; margin-bottom:20px;
+}
+.btn-primary{transition:transform .12s;}
+.btn-primary:active{transform:scale(0.93) rotate(-1.5deg);}
+.hero-quickgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px; max-width:360px; width:100%;}
+.hero-progress-card{
+  background:var(--paper); color:var(--text); border-radius:16px; padding:12px 16px 14px;
+  box-shadow:0 10px 26px rgba(0,0,0,0.28); margin-bottom:20px; max-width:360px; width:100%;
+  position:relative;
+}
+.hero-progress-card .tp-countdown{font-family:'Playfair Display',serif; font-weight:700; font-size:1.05rem; color:var(--maroon); text-align:center; margin-bottom:8px; line-height:1.25;}
+.hero-progress-card .tp-stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;}
+.hero-progress-card .tp-stat{background:var(--cream2); border-radius:11px; padding:7px 3px; text-align:center;}
+.hero-progress-card .tp-stat .v{font-family:'Playfair Display',serif; font-size:0.98rem; font-weight:700; color:var(--rust-dark);}
+.hero-progress-card .tp-stat .l{font-size:0.55rem; text-transform:uppercase; letter-spacing:0.3px; color:var(--brown); opacity:0.8; margin-top:1px;}
+
+.home-peek{padding:28px 18px 34px; max-width:520px; margin:0 auto;}
+.peek-title{
+  text-align:center; font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:1.5px;
+  color:var(--brown); opacity:0.65; margin-bottom:14px;
+}
+.peek-row{display:flex; gap:12px; overflow-x:auto; padding:4px 2px 10px; scrollbar-width:none;}
+.peek-row::-webkit-scrollbar{display:none;}
+.peek-card{
+  flex:0 0 68%; scroll-snap-align:start; border-radius:18px; padding:16px; color:#fff;
+  box-shadow:0 10px 20px rgba(75,45,25,0.18); cursor:pointer; transition:transform .12s;
+}
+.peek-row{scroll-snap-type:x mandatory;}
+.peek-card:active{transform:scale(0.95) rotate(-1deg);}
+.peek-a{background:linear-gradient(135deg,var(--mustard),var(--rust-dark));}
+.peek-b{background:linear-gradient(135deg,var(--pumpkin),var(--rust));}
+.peek-c{background:linear-gradient(135deg,var(--maroon),#4a1d28);}
+.peek-d{background:linear-gradient(135deg,var(--forest),#2e3d24);}
+.peek-label{font-size:0.68rem; text-transform:uppercase; letter-spacing:0.8px; font-weight:700; opacity:0.85; margin-bottom:6px;}
+.peek-text{font-family:'Playfair Display',serif; font-size:1.02rem; line-height:1.3;}
+.qg-item{
+  border:1px solid rgba(255,255,255,0.25);
+  border-radius:14px; padding:12px 4px; cursor:pointer; text-align:center; color:#fff;
+  transition:transform .12s; box-shadow:0 4px 10px rgba(0,0,0,0.18);
+}
+.qg-item:active{transform:scale(0.9) rotate(2deg);}
+.qg-item .ic{font-size:1.4rem; display:block; margin-bottom:4px;}
+.hero-quickgrid .qg-item:nth-child(1){background:linear-gradient(135deg,var(--mustard),var(--rust-dark));}
+.hero-quickgrid .qg-item:nth-child(2){background:linear-gradient(135deg,var(--forest),#324226);}
+.hero-quickgrid .qg-item:nth-child(3){background:linear-gradient(135deg,var(--pumpkin),var(--rust));}
+.hero-quickgrid .qg-item:nth-child(4){background:linear-gradient(135deg,var(--maroon),#4a1d28);}
+.hero-quickgrid .qg-item:nth-child(5){background:linear-gradient(135deg,var(--rust),var(--rust-dark));}
+.hero-quickgrid .qg-item:nth-child(6){background:linear-gradient(135deg,#3a4a2e,var(--forest));}
+.qg-item .lb{font-size:0.68rem; letter-spacing:0.3px;}
+
+/* ---------- Per-page color washes ---------- */
+#view-map{background:radial-gradient(circle at 15% 0%, rgba(74,93,58,0.14), transparent 45%);}
+#view-daily, #view-daydetail{background:radial-gradient(circle at 85% 0%, rgba(212,160,23,0.16), transparent 45%);}
+#view-games{background:radial-gradient(circle at 15% 0%, rgba(224,142,69,0.18), transparent 45%);}
+#view-plates{background:radial-gradient(circle at 85% 0%, rgba(107,39,55,0.14), transparent 45%);}
+#view-playlist{background:radial-gradient(circle at 15% 0%, rgba(156,61,34,0.16), transparent 45%);}
+#view-podcasts{background:radial-gradient(circle at 85% 0%, rgba(74,93,58,0.16), transparent 45%);}
+#view-bored{background:radial-gradient(circle at 15% 0%, rgba(212,160,23,0.18), transparent 45%);}
+#view-packing{background:radial-gradient(circle at 85% 0%, rgba(74,93,58,0.14), transparent 45%);}
+#view-more{background:radial-gradient(circle at 15% 0%, rgba(193,80,46,0.14), transparent 45%);}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--paper); border-radius:18px; padding:16px 18px;
+  box-shadow:var(--shadow); margin-bottom:14px; border:1px solid rgba(193,80,46,0.08);
+}
+
+/* ---------- Map ---------- */
+#leaflet-map{width:100%; height:340px; border-radius:18px; box-shadow:var(--shadow); margin-bottom:16px; border:3px solid var(--paper);}
+.stop-list .stop{
+  display:flex; gap:12px; padding:12px 0; border-bottom:1px dashed rgba(107,39,55,0.15);
+}
+.stop-list .stop:last-child{border-bottom:none;}
+.stop-num{
+  min-width:30px; height:30px; border-radius:50%; background:var(--rust); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0;
+}
+.stop-body .day-tag{font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--forest); font-weight:700;}
+.stop-body h4{margin:2px 0 2px; font-size:1rem;}
+.stop-body p{margin:0; font-size:0.86rem; color:var(--brown);}
+.stop-body .stay{font-size:0.8rem; color:var(--rust-dark); margin-top:3px; font-weight:600;}
+
+/* ---------- Packing & weather teaser ---------- */
+.pack-weather-card{
+  background:linear-gradient(135deg,var(--forest),#324226); color:#fff; border-radius:18px;
+  padding:16px 18px; margin-bottom:16px; box-shadow:var(--shadow); cursor:pointer; transition:transform .12s;
+}
+.pack-weather-card:active{transform:scale(0.97);}
+.pw-row{display:flex; gap:14px;}
+.pw-block{flex:1;}
+.pw-ic{font-size:1.3rem; margin-bottom:2px;}
+.pw-title{font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; opacity:0.85; margin-bottom:4px;}
+.pw-text{font-size:0.82rem; line-height:1.4; opacity:0.95;}
+.pw-link{margin-top:12px; font-size:0.8rem; font-weight:700; text-decoration:underline; opacity:0.9;}
+
+/* ---------- Daily list ---------- */
+.day-card{
+  background:var(--paper); border-radius:18px; padding:16px; margin-bottom:12px; box-shadow:var(--shadow);
+  display:flex; gap:14px; align-items:center; cursor:pointer; border:1px solid rgba(193,80,46,0.08);
+  transition:transform .15s;
+}
+.day-card:nth-child(odd){transform:rotate(-0.3deg);}
+.day-card:nth-child(even){transform:rotate(0.3deg);}
+.day-card:active{transform:scale(0.94) rotate(-1.5deg) !important;}
+.day-num{
+  width:52px; height:52px; border-radius:14px; flex-shrink:0;
+  background:linear-gradient(135deg,var(--pumpkin),var(--rust)); color:#fff;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Playfair Display',serif;
+}
+.day-num .d{font-size:1.3rem; font-weight:700; line-height:1;}
+.day-num .m{font-size:0.6rem; text-transform:uppercase;}
+.day-card-body{flex:1;}
+.day-card-body .route{font-weight:700; font-size:0.98rem; color:var(--maroon);}
+.day-card-body .meta{font-size:0.8rem; color:var(--brown); opacity:0.85;}
+.chevron{color:var(--rust); font-size:1.2rem;}
+
+/* ---------- Day detail ---------- */
+.detail-hero{
+  background:linear-gradient(135deg,var(--maroon),var(--rust)); color:var(--cream);
+  border-radius:18px; padding:20px; margin-bottom:16px;
+}
+.detail-hero .day-tag{font-size:0.75rem; opacity:0.85; text-transform:uppercase; letter-spacing:1px;}
+.detail-hero h2{color:#fff; font-size:1.4rem; margin:4px 0 6px;}
+.detail-hero p{margin:0; font-size:0.9rem; opacity:0.92;}
+.info-row{display:flex; gap:10px; align-items:flex-start; margin-bottom:10px;}
+.info-row .ic{font-size:1.15rem; width:26px; text-align:center; flex-shrink:0;}
+.info-row .txt b{display:block; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--forest);}
+.info-row .txt span{font-size:0.92rem;}
+.checklist label{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(107,39,55,0.08); font-size:0.94rem;}
+.checklist input{width:19px; height:19px; accent-color:var(--rust);}
+.add-row{display:flex; gap:8px; margin-top:10px;}
+.add-row input{flex:1; padding:10px 12px; border-radius:10px; border:1px solid rgba(107,39,55,0.2); font-family:inherit; font-size:0.92rem;}
+.add-row button{background:var(--forest); color:#fff; border:none; border-radius:10px; padding:0 16px; font-weight:700; cursor:pointer;}
+textarea.notes{
+  width:100%; min-height:90px; border-radius:12px; border:1px solid rgba(107,39,55,0.2); padding:10px 12px;
+  font-family:inherit; font-size:0.92rem; resize:vertical;
+}
+.dayflip{display:flex; justify-content:space-between; margin-top:16px;}
+.dayflip button{background:var(--paper); border:1px solid rgba(193,80,46,0.25); border-radius:12px; padding:10px 16px; font-weight:700; color:var(--rust-dark); cursor:pointer; box-shadow:var(--shadow);}
+
+/* ---------- Generic list pages (playlist/podcast) ---------- */
+.empty-state{
+  border:2px dashed rgba(193,80,46,0.35); border-radius:16px; padding:22px; text-align:center; color:var(--brown); margin-bottom:14px;
+}
+.empty-state .ic{font-size:1.8rem; display:block; margin-bottom:8px;}
+.chip-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+.chip{
+  border-radius:6px; padding:6px 14px; font-size:0.85rem; font-weight:700; color:#fff;
+  box-shadow:0 2px 5px rgba(75,45,25,0.18);
+}
+.chip-row .chip:nth-child(6n+1){background:var(--rust); transform:rotate(-1.5deg);}
+.chip-row .chip:nth-child(6n+2){background:var(--forest); transform:rotate(1deg);}
+.chip-row .chip:nth-child(6n+3){background:var(--mustard); color:var(--maroon); transform:rotate(-0.5deg);}
+.chip-row .chip:nth-child(6n+4){background:var(--maroon); transform:rotate(1.2deg);}
+.chip-row .chip:nth-child(6n+5){background:var(--pumpkin); transform:rotate(-1deg);}
+.chip-row .chip:nth-child(6n+6){background:var(--rust-dark); transform:rotate(0.6deg);}
+.generator-box{
+  background:linear-gradient(135deg,var(--forest),#3a4a2e); color:#fff; border-radius:18px; padding:22px; text-align:center; box-shadow:var(--shadow); margin-bottom:16px;
+}
+.generator-box .result{font-family:'Playfair Display',serif; font-size:1.25rem; min-height:64px; display:flex; align-items:center; justify-content:center; padding:0 6px; line-height:1.3;}
+#view-bored .generator-box{background:linear-gradient(135deg,var(--mustard),var(--rust-dark));}
+#view-games .generator-box{background:linear-gradient(135deg,var(--pumpkin),var(--rust));}
+#view-playlist .generator-box{background:linear-gradient(135deg,var(--maroon),var(--rust-dark));}
+#view-podcasts .generator-box{background:linear-gradient(135deg,var(--forest),#2e3d24);}
+.generator-box button{
+  margin-top:10px; background:var(--mustard); color:var(--maroon); border:none; border-radius:999px; padding:11px 26px;
+  font-weight:700; font-size:0.95rem; cursor:pointer;
+}
+
+/* ---------- Games ---------- */
+.game-category{margin-bottom:20px;}
+.game-category-head{
+  display:inline-block; font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:1.2px;
+  color:#fff; background:var(--forest); padding:5px 14px; border-radius:3px;
+  margin:0 0 10px 2px; transform:rotate(-1deg); box-shadow:0 3px 6px rgba(74,93,58,0.35);
+}
+.game-card{background:var(--paper); border-radius:16px; padding:14px 16px; margin-bottom:10px; box-shadow:var(--shadow); border-left:5px solid var(--pumpkin);}
+.game-card:nth-child(odd){transform:rotate(-0.4deg);}
+.game-card:nth-child(even){transform:rotate(0.4deg);}
+.game-card h4{margin:0 0 4px; font-size:1rem;}
+.game-card p{margin:0; font-size:0.88rem; color:var(--brown);}
+.game-card .tag{font-size:0.68rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--forest); font-weight:700;}
+
+/* ---------- License plates ---------- */
+.plate-progress{background:var(--paper); border-radius:16px; padding:14px 16px; box-shadow:var(--shadow); margin-bottom:14px;}
+.progress-bar-track{background:var(--cream2); border-radius:999px; height:12px; overflow:hidden; margin-top:8px;}
+.progress-bar-fill{background:linear-gradient(90deg,var(--pumpkin),var(--rust)); height:100%; border-radius:999px; transition:width .3s;}
+.plate-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+.plate{
+  background:var(--paper); border:2px solid rgba(193,80,46,0.18); border-radius:14px; padding:12px 6px; text-align:center;
+  cursor:pointer; color:var(--brown); box-shadow:0 2px 6px rgba(75,45,25,0.06);
+  user-select:none; display:flex; align-items:center; justify-content:center; gap:6px; min-height:56px;
+  transition:transform .12s;
+}
+.plate.found{background:linear-gradient(135deg,var(--pumpkin),var(--rust)); color:#fff; border-color:transparent; transform:rotate(-1.5deg) scale(1.02);}
+.plate:active{transform:scale(0.9) rotate(-3deg) !important;}
+.plate .em{font-size:1.3rem; line-height:1; flex-shrink:0;}
+.plate .code{font-weight:800; letter-spacing:0.2px; line-height:1.15;}
+.plate .code.sz-lg{font-size:1.25rem;}
+.plate .code.sz-md{font-size:1.02rem;}
+.plate .code.sz-sm{font-size:0.86rem;}
+.plate .code.sz-xs{font-size:0.72rem;}
+
+/* ---------- Bottom nav ---------- */
+.tabbar{
+  position:fixed; bottom:0; left:0; right:0; z-index:60;
+  background:rgba(255,251,244,0.97); backdrop-filter:blur(6px);
+  border-top:1px solid rgba(107,39,55,0.12);
+  display:flex; justify-content:space-around; padding:6px 2px 8px;
+  box-shadow:0 -4px 16px rgba(75,45,25,0.08);
+}
+.tabbar.hidden{display:none;}
+.tab-btn{
+  background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:2px;
+  color:var(--brown); opacity:0.6; font-size:0.62rem; font-weight:700; cursor:pointer; padding:4px 2px; flex:1;
+}
+.tab-btn .ic{font-size:1.2rem; transition:transform .15s, background .15s; border-radius:50%; padding:3px 8px;}
+.tab-btn.active{opacity:1; color:var(--rust-dark);}
+.tab-btn.active .ic{background:linear-gradient(135deg,var(--pumpkin),var(--rust)); transform:scale(1.08);}
+
+</style>
+</head>
+<body>
+
+<div class="topbar" id="topbar" style="display:none;">
+  <button class="back" id="backBtn" onclick="goHome()">&#8592;</button>
+  <div class="brand">🍁 NE Road Trip '26</div>
+  <div style="width:24px;"></div>
+</div>
+
+<!-- HOME -->
+<section class="view active" id="view-home">
+  <div class="hero">
+    <div class="leaves">🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁</div>
+    <div class="hero-badge">September 14–22, 2026</div>
+    <h1>Our 2026 NE Road Trip</h1>
+    <p class="sub">🧡 Your one-stop-shop for the road ahead 🧡</p>
+    <button class="btn-primary" onclick="navigate('map')">Explore the Trip →</button>
+    <div class="hero-progress-card" id="tripProgressCard"></div>
+    <div class="hero-quickgrid">
+      <div class="qg-item" onclick="navigate('daily')"><span class="ic">📅</span><span class="lb">Daily Plan</span></div>
+      <div class="qg-item" onclick="navigate('bored')"><span class="ic">😴</span><span class="lb">I'm Bored</span></div>
+      <div class="qg-item" onclick="navigate('games')"><span class="ic">🎮</span><span class="lb">Games</span></div>
+      <div class="qg-item" onclick="navigate('plates')"><span class="ic">🚙</span><span class="lb">Plates</span></div>
+      <div class="qg-item" onclick="navigate('playlist')"><span class="ic">🎹</span><span class="lb">Listen</span></div>
+      <div class="qg-item" onclick="navigate('podcasts')"><span class="ic">🎙️</span><span class="lb">Podcasts</span></div>
+    </div>
+    <svg class="hero-wave" viewBox="0 0 500 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M0,20 C125,45 375,-5 500,20 L500,40 L0,40 Z" fill="#FBF3E7"/></svg>
+  </div>
+  <div class="home-peek">
+    <div class="peek-title">Something for the road</div>
+    <div class="peek-row">
+      <div class="peek-card peek-a" onclick="navigate('bored')">
+        <div class="peek-label">Bored? Try this</div>
+        <div class="peek-text" id="peekBored"></div>
+      </div>
+      <div class="peek-card peek-b" onclick="navigate('games')">
+        <div class="peek-label">Game spotlight</div>
+        <div class="peek-text" id="peekGame"></div>
+      </div>
+      <div class="peek-card peek-c" onclick="navigate('playlist')">
+        <div class="peek-label">Press play</div>
+        <div class="peek-text" id="peekAlbum"></div>
+      </div>
+      <div class="peek-card peek-d" onclick="navigate('podcasts')">
+        <div class="peek-label">Learn something</div>
+        <div class="peek-text" id="peekPodcast"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MAP -->
+<section class="view" id="view-map">
+  <div id="leaflet-map"></div>
+  <div class="card stop-list" id="stopList"></div>
+</section>
+
+<!-- DAILY LIST -->
+<section class="view" id="view-daily">
+  <div class="pack-weather-card" onclick="navigate('packing')">
+    <div class="pw-row">
+      <div class="pw-block">
+        <div class="pw-ic">🌤️</div>
+        <div class="pw-title">Expect</div>
+        <div class="pw-text">Mid-to-late Sept in the Northeast: crisp 45–55°F mornings, mild 65–75°F afternoons cooling into the 60s by the trip's end, and a decent chance of rain somewhere on the route. Classic layering weather.</div>
+      </div>
+      <div class="pw-block">
+        <div class="pw-ic">🧳</div>
+        <div class="pw-title">Pack</div>
+        <div class="pw-text">Layers, a light rain jacket, comfortable walking shoes, one nice outfit for Boston/NYC, and a warm layer for evenings.</div>
+      </div>
+    </div>
+    <div class="pw-link">Open full packing checklist →</div>
+  </div>
+  <div id="dayCardList"></div>
+</section>
+
+<!-- DAY DETAIL -->
+<section class="view" id="view-daydetail"></section>
+
+<!-- PLAYLIST -->
+<section class="view" id="view-playlist">
+  <div class="generator-box">
+    <div class="result" id="playlistResult">Tap shuffle for an album pick 🎧</div>
+    <button onclick="shuffleArtist()">Shuffle Album 🎤</button>
+  </div>
+  <div class="card">
+    <h3 style="font-size:1.05rem;">🎤 The Lineup</h3>
+    <div class="chip-row" id="artistChips"></div>
+  </div>
+</section>
+
+<!-- PODCASTS -->
+<section class="view" id="view-podcasts">
+  <div class="generator-box">
+    <div class="result" id="podcastResult">Tap a shuffle button for a listening idea 🎙️</div>
+    <div>
+      <button onclick="shufflePodcast()">Shuffle Category 🔀</button>
+      <button onclick="shuffleShow()" style="background:transparent; border:1.5px solid rgba(255,255,255,0.5); color:#fff; margin-left:8px;">Shuffle Show 🎙️</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="font-size:1.05rem;">🎙️ The Queue</h3>
+    <div class="chip-row" id="podcastChips"></div>
+  </div>
+  <div class="empty-state">
+    <span class="ic">🎙️</span>
+    <b>More shows coming</b>
+    <p style="margin:6px 0 0;">Send over the rest of your favorite shows / channels and this list will keep growing.</p>
+  </div>
+</section>
+
+<!-- GAMES -->
+<section class="view" id="view-games">
+  <div class="generator-box">
+    <div class="result" id="gameResult">Tap shuffle to pick today's game 🎲</div>
+    <button onclick="shuffleGame()">Shuffle Game 🔀</button>
+  </div>
+  <div id="gamesList"></div>
+</section>
+
+<!-- I'M BORED -->
+<section class="view" id="view-bored">
+  <div class="generator-box">
+    <div class="result" id="boredResult">🍁 Tap below for an idea!</div>
+    <button onclick="shuffleBored()">Give Me an Idea</button>
+  </div>
+</section>
+
+<!-- LICENSE PLATES -->
+<section class="view" id="view-plates">
+  <div class="plate-progress">
+    <div style="display:flex; justify-content:space-between; font-weight:700; color:var(--rust-dark);">
+      <span id="plateCount">0 / 51 found</span>
+      <span id="plateReset" style="cursor:pointer; opacity:0.6; font-weight:600; font-size:0.85rem;" onclick="resetPlates()">reset</span>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="plateBar" style="width:0%;"></div></div>
+  </div>
+  <div class="plate-grid" id="plateGrid"></div>
+</section>
+
+<nav class="tabbar" id="tabbar">
+  <button class="tab-btn" data-tab="home" onclick="navigate('home')"><span class="ic">🏠</span>Home</button>
+  <button class="tab-btn" data-tab="daily" onclick="navigate('daily')"><span class="ic">📅</span>Days</button>
+  <button class="tab-btn" data-tab="games" onclick="navigate('games')"><span class="ic">🎮</span>Games</button>
+  <button class="tab-btn" data-tab="plates" onclick="navigate('plates')"><span class="ic">🚙</span>Plates</button>
+  <button class="tab-btn" data-tab="more" onclick="navigate('more')"><span class="ic">✨</span>More</button>
+</nav>
+
+<!-- PACKING -->
+<section class="view" id="view-packing">
+  <div class="plate-progress">
+    <div style="display:flex; justify-content:space-between; font-weight:700; color:var(--rust-dark);">
+      <span id="packCount">0 / 0 packed</span>
+      <span style="cursor:pointer; opacity:0.6; font-weight:600; font-size:0.85rem;" onclick="resetPacking()">reset</span>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="packBar" style="width:0%;"></div></div>
+  </div>
+  <div id="packingList"></div>
+</section>
+
+<!-- MORE -->
+<section class="view" id="view-more">
+  <div class="day-card" onclick="navigate('playlist')" style="cursor:pointer;">
+    <div class="day-num" style="background:linear-gradient(135deg,#8a5a3c,#4A3428);"><span style="font-size:1.4rem;">🎹</span></div>
+    <div class="day-card-body"><div class="route">What to Listen To</div><div class="meta">Playlist ideas for the drive</div></div>
+    <div class="chevron">›</div>
+  </div>
+  <div class="day-card" onclick="navigate('podcasts')" style="cursor:pointer;">
+    <div class="day-num" style="background:linear-gradient(135deg,var(--forest),#324226);"><span style="font-size:1.4rem;">🎙️</span></div>
+    <div class="day-card-body"><div class="route">Podcast Ideas</div><div class="meta">Long-drive listening</div></div>
+    <div class="chevron">›</div>
+  </div>
+  <div class="day-card" onclick="navigate('bored')" style="cursor:pointer;">
+    <div class="day-num" style="background:linear-gradient(135deg,var(--mustard),var(--rust));"><span style="font-size:1.4rem;">😴</span></div>
+    <div class="day-card-body"><div class="route">I'm Bored</div><div class="meta">Random idea generator</div></div>
+    <div class="chevron">›</div>
+  </div>
+  <div class="day-card" onclick="navigate('packing')" style="cursor:pointer;">
+    <div class="day-num" style="background:linear-gradient(135deg,#6b8f71,#3f5943);"><span style="font-size:1.4rem;">🧳</span></div>
+    <div class="day-card-body"><div class="route">Packing Checklist</div><div class="meta">Don't forget the essentials</div></div>
+    <div class="chevron">›</div>
+  </div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ===================== DATA ===================== */
+const TRIP = [
+  {
+    day:1, date:"Mon, Sep 14", dateISO:"2026-09-14", miles:590, driveHours:9, route:"Nashville → Pittsburgh, PA",
+    desc:"Early drive out of Nashville with a stop through the Louisville / Cincinnati / Columbus corridor, then on to Pittsburgh before the night's stay. Dinner with Addie along the way.",
+    stops:["Louisville / Cincinnati / Columbus (drive-through stop)","Pittsburgh, PA — afternoon","Dinner with Addie"],
+    stay:{name:"Hampton Inn & Suites Blairsville", address:"62 Pine Ridge Road, Blairsville, PA 15717"},
+    bucket:["Duquesne Incline ride up Mount Washington for the skyline view","Stroll & snack through the Strip District","Point State Park at the river confluence","Randyland — Pittsburgh's most colorful corner"], lat:40.4223, lng:-79.2617
+  },
+  {
+    day:2, date:"Tue, Sep 15", dateISO:"2026-09-15", miles:600, driveHours:10, route:"Blairsville, PA → Strafford, NH",
+    desc:"Northern route through Vermont with a stop in Albany, arriving in New Hampshire by evening. First night at the NH cottage.",
+    stops:["Albany, NY (drive-through stop)","Vermont — scenic northern route"],
+    stay:{name:"NH Cottage", address:"Strafford, NH"},
+    bucket:["Scenic photo stop along the Vermont foliage route","Quick stretch-your-legs stop in Albany, NY"], lat:43.2603, lng:-71.1948
+  },
+  {
+    day:3, date:"Wed, Sep 16", dateISO:"2026-09-16", miles:140, driveHours:2, route:"Portland & Kennebunkport, ME (day trip)",
+    desc:"Full day trip up to Maine — Portland in the morning, Kennebunkport in the afternoon — then back to the NH cottage for a second night.",
+    stops:["Portland, ME","Kennebunkport, ME"],
+    stay:{name:"NH Cottage", address:"Strafford, NH"},
+    bucket:["Portland's Old Port waterfront + a lobster roll","Dock Square shops in Kennebunkport","Parsons Way Shore Walk along Cape Arundel","Goose Rocks Beach"], lat:43.6591, lng:-70.2568
+  },
+  {
+    day:4, date:"Thu, Sep 17", dateISO:"2026-09-17", miles:125, driveHours:2, route:"Salem & Boston, MA → Providence, RI",
+    desc:"Salem in the morning, Boston in the afternoon, then a drive down to Providence for the night.",
+    stops:["Salem, MA","Boston, MA"],
+    stay:{name:"Hilton Garden Inn Providence", address:"220 India Street, Providence, RI 02903"},
+    bucket:["House of the Seven Gables in Salem","Salem Witch Trials walking tour","Freedom Trail in Boston","Swan Boats at the Boston Public Garden"], lat:41.8240, lng:-71.4128
+  },
+  {
+    day:5, date:"Fri, Sep 18", dateISO:"2026-09-18", miles:205, driveHours:3, route:"Providence → New York City, NY",
+    desc:"Morning drive to NYC (possible park stop in Woodbridge), full day in the city, then over to Woodbridge / Iselin, NJ for the night.",
+    stops:["New York City — full day","Possible park stop in Woodbridge"],
+    stay:{name:"APA Hotel Woodbridge", address:"120 South Wood Avenue, Iselin, NJ 08830"},
+    bucket:["Sunrise stroll through Central Park","Top of the Rock at sunset","Walk a stretch of the High Line","Times Square, once, to check the box"], lat:40.5754, lng:-74.3230
+  },
+  {
+    day:6, date:"Sat, Sep 19", dateISO:"2026-09-19", miles:165, driveHours:3, route:"Princeton, NJ → Rehoboth Beach, DE",
+    desc:"Morning stop in Princeton, then down to Rehoboth Beach for the rest of the day and night.",
+    stops:["Princeton, NJ — campus & town"],
+    stay:{name:"The Bellmoor Rehoboth", address:"Rehoboth Beach, DE"},
+    bucket:["Walk the Princeton University campus & chapel","Browse Nassau Street / Palmer Square","Rehoboth boardwalk + Funland","Cape Henlopen State Park (Gordons Pond trail)"], lat:38.7168, lng:-75.0760
+  },
+  {
+    day:7, date:"Sun, Sep 20", dateISO:"2026-09-20", miles:120, driveHours:2, route:"Rehoboth → Baltimore, MD",
+    desc:"Drive to Baltimore for a home / friend visit day.",
+    stops:["Baltimore — friend visit"],
+    stay:{name:"Staying with a friend", address:"Baltimore, MD"},
+    bucket:["National Aquarium (if time allows)","Catch up over dinner with friends"], lat:39.2904, lng:-76.6122
+  },
+  {
+    day:8, date:"Mon, Sep 21", dateISO:"2026-09-21", miles:10, driveHours:0, route:"Baltimore, MD",
+    desc:"Tourist day in Baltimore.",
+    stops:["Inner Harbor","Explore Baltimore"],
+    stay:{name:"Staying with a friend", address:"Baltimore, MD"},
+    bucket:["National Aquarium","Fort McHenry National Monument","Historic Ships (USS Constellation) at Inner Harbor","Top of the World observation deck"], lat:39.2904, lng:-76.6122
+  },
+  {
+    day:9, date:"Tue, Sep 22", dateISO:"2026-09-22", miles:660, driveHours:11, route:"Baltimore → Nashville",
+    desc:"Early drive back home with a stop through the Roanoke / Knoxville corridor.",
+    stops:["Roanoke / Knoxville (drive-through stop)"],
+    stay:{name:"Home", address:"Nashville, TN"},
+    bucket:[], lat:36.1627, lng:-86.7816
+  }
+];
+
+const GAMES = [
+  {name:"I Spy", tag:"Classic", desc:"One of you picks something visible and says \"I spy with my little eye, something that…\" giving a color or first-letter clue. The other guesses until they're right — then it's their turn to pick."},
+  {name:"License Plate Scavenger Hunt", tag:"Classic", desc:"Spot license plates from as many different states as you can. Keep score in the Plates tab and see who spots the most by Baltimore."},
+  {name:"Twenty Questions", tag:"Classic", desc:"One of you thinks of a person, place, or thing. The other gets 20 yes/no questions to guess it."},
+  {name:"I'm Going on a Picnic", tag:"Memory", desc:"Player 1 says an item starting with A. Player 2 repeats it and adds a B item. Keep going A→Z, repeating the whole list each time. Mess up and you're out."},
+  {name:"Alphabet Hunt", tag:"Classic", desc:"Find the letters A to Z in order on road signs, billboards, and license plates. First to Z wins."},
+  {name:"Slug Bug", tag:"Reflex", desc:"First to spot a VW Bug calls it out. Classic version: gentle tap on the arm. Bonus rule: yellow bug = tap the roof, blue bug = bark like a dog."},
+  {name:"Would You Rather", tag:"Talk", desc:"Take turns posing two wild or tough options — both of you answer and defend the pick. Great for long highway stretches."},
+  {name:"Category Countdown", tag:"Word", desc:"Pick a category (states, movies, foods). Alternate naming one item each — no repeats, no long pauses."},
+  {name:"Road Trip Bingo", tag:"Scavenger", desc:"Before you leave, jot a 9-box grid of things you might see (cow, water tower, out-of-state plate, gas station). First to fill a row wins."},
+  {name:"Name That Tune", tag:"Music", desc:"Play a few seconds of a song from the playlist — first to name the title or artist gets a point."},
+  {name:"Fortunately / Unfortunately", tag:"Story", desc:"One of you starts a story with \"Fortunately…\", the other flips it with \"Unfortunately…\" — keep alternating and see where the story ends up."},
+  {name:"Odd Color Car", tag:"Scavenger", desc:"Pick a rare car color — orange, purple, lime green. First to spot five of them wins."},
+  {name:"Movie Plot Excuse", tag:"Silly", desc:"Explain why you're \"running late\" using a famous movie's plot instead of the truth. The other has to guess the movie."},
+  {name:"Truth or Lies", tag:"Talk", desc:"One of you states something from your past. The other cross-examines and decides if it's true or a lie."},
+  {name:"Relationship Memory Game", tag:"Memory", desc:"Take turns recalling small details from a shared memory — a trip, a first date, last week's dinner. See who remembers more."},
+  {name:"The Counting Game", tag:"Reflex", desc:"Count upward together with no set turn order. If you both talk at once, you're back to one."},
+  {name:"Collaborative Storytelling", tag:"Story", desc:"Build a story one sentence at a time, no planning ahead. See how far off the rails it goes."},
+  {name:"This or That", tag:"Talk", desc:"Rapid-fire forced choices, no explanations allowed until the round is over."},
+  {name:"Radio Roulette", tag:"Music", desc:"Flip through radio stations with your eyes closed — whatever plays, you're stuck with it for one full song."},
+  {name:"License Plate Poker", tag:"Word", desc:"Build a \"poker hand\" from the last few digits or letters on the next plate you see. Best hand by the next stop wins."},
+  {name:"Alphabet Movie Titles", tag:"Word", desc:"Alternate naming a movie starting with each letter, A to Z. First to stall out loses."},
+  {name:"Bumper Sticker Judge", tag:"Silly", desc:"Rate every bumper sticker you pass on a 1–10 scale. Harshest critic wins bragging rights."},
+  {name:"Freeze Frame", tag:"Reflex", desc:"Call \"freeze\" at a random moment — whoever moves or reacts first loses the round."},
+  {name:"The Quiet Game", tag:"Bet", desc:"First one to talk buys the other's next coffee. Works surprisingly well on quiet highway stretches."},
+  {name:"Two Truths and a Lie", tag:"Talk", desc:"Each of you shares two true statements and one lie — the other has to guess which is which."},
+  {name:"Playlist Roulette", tag:"Music", desc:"Shuffle your entire music library, not just the trip playlist. Rate whatever plays, no skipping."},
+  {name:"The Compliment Round", tag:"Talk", desc:"Give each other one specific, genuine compliment about something from the trip so far."},
+  {name:"Song Association", tag:"Word", desc:"One of you says a word, the other has to name a song containing that word. Back and forth until someone's stumped."},
+  {name:"The Newlywed-Style Game", tag:"Couple", desc:"Guess how the other would answer a random question — favorite stop, worst gas station, best meal — then compare answers."},
+  {name:"Debate Club", tag:"Debate", desc:"Pick a silly topic (pineapple on pizza, cereal is soup) and hold a two-minute mock debate, one side each."},
+  {name:"Exit Sign Bingo", tag:"Guess", desc:"Guess what's waiting at the next highway exit before you actually see it."},
+  {name:"The Ranking Game", tag:"Talk", desc:"Rank anything — road trip snacks, stops so far, gas station coffee — and defend the order to each other."},
+  {name:"Mystery Playlist", tag:"Music", desc:"One of you secretly builds a 5-song playlist. The other has to guess the theme by the end of it."},
+  {name:"The Accent Challenge", tag:"Silly", desc:"Recap today's drive entirely in a fake accent of your choosing. Bonus points for commitment."},
+  {name:"Would You Rather: Trip Edition", tag:"Couple", desc:"Would-you-rathers about this itinerary specifically — \"Would you rather skip Boston or skip NYC?\""},
+  {name:"20-Second Rule", tag:"Talk", desc:"Ask a question. The other has 20 seconds to answer out loud without pausing to think."},
+  {name:"The Alibi Game", tag:"Silly", desc:"Make up an elaborate, ridiculous alibi for why you're really driving through this random town."},
+  {name:"Sign Spotting", tag:"Scavenger", desc:"First to spot a road sign with a typo or an unintentional pun wins the round."},
+  {name:"The Prediction Game", tag:"Guess", desc:"Predict something about the next stop — the weather, how busy it'll be, what you'll order — before you get there."},
+  {name:"Roadside Trivia", tag:"Trivia", desc:"Look up a fun fact about the state or city you're passing through and quiz each other on it."},
+  {name:"The One-Word Story", tag:"Story", desc:"Build a story one word at a time, no discussing ahead of your turn."},
+  {name:"Gas Station Snack Draft", tag:"Bet", desc:"At the next stop, each of you drafts three snacks blind, no repeats. Judge the full haul once you're back in the car."},
+  {name:"Highway Karaoke", tag:"Music", desc:"Pick a song and full-send the karaoke. No holding back, no judging."},
+  {name:"Guess the Distance", tag:"Guess", desc:"Guess the mileage to the next town sign before it comes into view. Closest guess wins."},
+  {name:"Bad Sequel Titles", tag:"Silly", desc:"Come up with a ridiculous sequel title for a movie you both love."},
+  {name:"The Interview", tag:"Talk", desc:"One of you interviews the other like a magazine profile about the trip — real questions, dramatic follow-ups."},
+  {name:"The Yes Game", tag:"Couple", desc:"For the next 10 minutes, say yes to any reasonable suggestion the other makes."},
+  {name:"Rewrite the Road Sign", tag:"Silly", desc:"Take a real road sign you just passed and rewrite it as a joke."},
+  {name:"The Soundtrack Game", tag:"Music", desc:"Decide what song should be playing right now, for this exact moment, like it's a movie scene."},
+  {name:"Fifteen Questions, Remixed", tag:"Couple", desc:"Pick a handful of questions from the famous \"36 questions to fall in love\" list and actually answer them."},
+  {name:"The Nickname Game", tag:"Silly", desc:"Give a nickname to every town you pass for the next hour."},
+  {name:"Categories: Song Edition", tag:"Music", desc:"Pick a letter, alternate naming songs that start with it, until someone stalls out."},
+  {name:"The Overheard Game", tag:"Story", desc:"Imagine what conversation is happening in the car you just passed. Make it as dramatic as possible."},
+  {name:"Time Capsule", tag:"Talk", desc:"Say one thing right now you want to remember about this exact moment in five years."},
+  {name:"Rate the Rest Stop", tag:"Silly", desc:"Rate every rest stop bathroom of the day. Crown a winner (or loser) by the next stay."},
+  {name:"Guess My Age", tag:"Guess", desc:"Guess how old the next town or building looks before you can check. Whoever's closest picks the next stop's music."},
+  {name:"The Budget Game", tag:"Guess", desc:"Guess the total on the next gas fill-up or meal before the receipt prints. Loser tips extra."},
+  {name:"Playlist Tug-of-War", tag:"Music", desc:"Each of you adds one song per exit sign passed, building a joint playlist live as you drive."},
+  {name:"The Storyteller's Chair", tag:"Story", desc:"One of you tells a two-minute story about anything. The other can only respond in questions."},
+  {name:"Spot It First", tag:"Reflex", desc:"Call out categories — next billboard, next truck, next state line — and race each other to spot them first."},
+  {name:"The Fortune Teller", tag:"Guess", desc:"Predict what the other will order at the next meal stop. Track your accuracy for the whole trip."},
+  {name:"Retro Rewind", tag:"Music", desc:"Put on a song from the year you were born (or met) and rate it together."},
+  {name:"The One That Got Away", tag:"Talk", desc:"Tell the story of a place or meal from a past trip you wish you could redo."},
+  {name:"License to Chill", tag:"Talk", desc:"No rules, no points — just pick a real topic, deep or silly, and talk for ten minutes straight."},
+  {name:"The Encore Round", tag:"Bet", desc:"Replay your favorite game from earlier today, stakes doubled — loser picks up the next gas station snack run."},
+  {name:"Would You Rather: Fall Edition", tag:"Couple", desc:"Would-you-rathers themed to the trip's cozy fall vibe — pumpkin spice or apple cider, cabin or coastline."},
+  {name:"The Weather Guess", tag:"Guess", desc:"Guess tomorrow's weather before checking. Loser makes the coffee run at the next stop."},
+  {name:"Highway Hangman", tag:"Word", desc:"Play hangman using only road-trip-related words — no phones, just describe the blanks out loud."},
+  {name:"Story Chain: Genre Edition", tag:"Story", desc:"Build a story together, but each turn has to twist it into a new genre — horror, romance, comedy — on command."},
+  {name:"The Playlist Judge", tag:"Music", desc:"Play 10 seconds of five different songs and rank them together before moving on."},
+  {name:"Spot the Lookalike", tag:"Scavenger", desc:"Find a passing driver or car that looks like it belongs to a celebrity. Best match wins."},
+  {name:"The Great Debate: This Trip", tag:"Debate", desc:"Debate the single best decision made on this itinerary so far — and the one you'd change."},
+  {name:"Andrew's Question Game", tag:"Talk", desc:"Andrew's box of conversation starter cards — pull one and answer it, no skipping."}
+];
+
+const BORED_IDEAS = [
+  // Music & podcast choice prompts
+  "Listen to a whole album, front to back — Andrew's choice 🎧",
+  "Listen to a whole album, front to back — Quinn's choice 🎧",
+  "Let Andrew DJ the next hour of driving, no vetoes.",
+  "Let Quinn DJ the next hour of driving, no vetoes.",
+  "Andrew picks the next podcast episode — Quinn can't skip it.",
+  "Quinn picks the next podcast episode — Andrew can't skip it.",
+  "Each of you picks one song that has to make the road trip playlist.",
+  "Play a song neither of you has heard before and rate it live.",
+  "Andrew makes the case for his favorite artist on this trip's playlist.",
+  "Quinn makes the case for her favorite artist on this trip's playlist.",
+  "Guess the song from the first three notes — loser picks next.",
+  "Find a local radio station and stick with it for 20 minutes, no matter what.",
+  "Andrew builds the next 30 minutes of music, no complaints allowed.",
+  "Quinn builds the next 30 minutes of music, no complaints allowed.",
+  "Andrew's choice, no skips, no exceptions — even the weird ones.",
+  "Quinn's choice, no skips, no exceptions — even the weird ones.",
+  "Winner of the next game gets full aux privileges for an hour, no vetoes.",
+  "Andrew picks a podcast episode you have to finish, no bailing early.",
+  "Quinn picks a podcast episode you have to finish, no bailing early.",
+  // Classic car games
+  "Play a round of 20 Questions — someone else picks first.",
+  "Play Alphabet Hunt using road signs.",
+  "Play a round of I Spy using only colors as clues.",
+  "Play Slug Bug for the next 30 minutes.",
+  "Play Category Countdown — pick a category, no repeats, no pauses.",
+  "Play License Plate Scavenger Hunt — first to five new states wins.",
+  "Start Road Trip Bingo — sketch a quick 9-box grid and go.",
+  "Play I'm Going on a Picnic — see how far you get through the alphabet.",
+  "Play Name That Tune with the current playlist.",
+  // Storytelling & talk
+  "Start a story one sentence at a time, going around the car.",
+  "Pick a Would-You-Rather and make everyone answer with a reason.",
+  "Tell the most embarrassing road trip story you've got.",
+  "Describe today's drive as if you were a nature documentary narrator.",
+  "Invent a backstory for the driver in the car next to you.",
+  "Debate: best road trip snack of all time. Defend your pick.",
+  "Recap yesterday's best moment in under 10 seconds.",
+  "Plan tomorrow's coffee order out loud, in full detail.",
+  "Come up with a nickname for today's leg of the trip.",
+  "Pitch a completely made-up reason for why the car ahead is going so slow.",
+  "Each person shares one thing they're looking forward to at the next stop.",
+  "Two truths and a lie — road trip edition.",
+  "Rank the stays so far, worst to best, and defend the ranking.",
+  "Describe your dream version of this trip in five years.",
+  "Come up with a trip motto for the day.",
+  // Guessing & trivia
+  "Guess how many miles until the next stop — closest wins, no phones.",
+  "Guess what time you'll actually arrive vs. GPS estimate.",
+  "Trivia round: state capitals for every state you've driven through.",
+  "Guess how many gas stations you'll pass in the next 10 minutes.",
+  "Name every U.S. president you can before running out of ideas.",
+  "Guess the population of the next town before the sign confirms it.",
+  // Photo & scavenger challenges
+  "Take a scenic photo out the window for the trip album.",
+  "Find something for every letter A–Z out the window.",
+  "Spot the next weird billboard and roast it.",
+  "Take a photo that could pass as an album cover.",
+  "Find the most out-of-place object you can spot from the highway.",
+  "Snap a candid photo of the driver's road trip face.",
+  "Spot a cow. First one to see one gets a point.",
+  "Find a water tower with a town name painted on it.",
+  // Reflection & gratitude
+  "Rate the last gas station bathroom, 1 to 10, and justify it.",
+  "Share one thing you're grateful for on this trip so far.",
+  "What's the best meal you've had this trip? Runner-up?",
+  "Pick a fall snack you're craving right now and justify it.",
+  "What's one thing you'd change about the itinerary so far?",
+  "Name your favorite stop so far and why.",
+  "Describe today's weather like a dramatic movie trailer.",
+  // Silly / random
+  "Invent a secret handshake for the rest of the trip.",
+  "Come up with a team name for you two, road trip edition.",
+  "Do an impression of the GPS voice for the next instruction.",
+  "Rename the next town you pass through, out loud.",
+  "Try to talk in movie quotes for five minutes.",
+  "Freestyle a one-verse song about today's drive.",
+  "Guess what's playing at the next radio station you flip to.",
+  "Come up with a fake commercial for the next rest stop.",
+  "Pick a song and rewrite the chorus about this road trip.",
+  // Fall & foliage themed
+  "Rate the foliage on a 1–10 peak-color scale right now.",
+  "Spot the most impressive single tree of the day.",
+  "Find the most \"fall\" looking small town you pass through.",
+  "Describe the current view using only fall-themed words.",
+  "Guess which state has had the best foliage so far.",
+  "Pick your ideal cozy fall drink and order it at the next stop.",
+  // Geography & map
+  "Guess which state you'll be in an hour from now.",
+  "Name a fun fact about the state you're currently driving through.",
+  "Pick a random exit number and imagine what's there.",
+  "Guess the next town's name before the sign confirms it.",
+  "Find the tallest thing visible from the highway right now.",
+  // Stretch break / at the next stop
+  "At the next stop: do a 60-second stretch break together.",
+  "At the next stop: find the most local, non-chain snack option.",
+  "At the next stop: take a picture recreating your first-day pose.",
+  "At the next stop: switch driver/navigator roles for the next leg.",
+  "At the next stop: everyone grabs one weird snack to share.",
+  // Journaling / memory
+  "Voice-memo a 30-second recap of today so future-you can hear it.",
+  "Write one line in the day's Notes about right now, this moment.",
+  "Pick today's headline, like it's a newspaper front page.",
+  "Rate today's drive playlist and swap it if it's not working.",
+  "Name one thing you want to remember from today in five years.",
+  // More would-you-rather / hypothetical
+  "Would you rather: teleport home right now or finish the whole loop by car?",
+  "Would you rather: live in the last town you passed or the next one?",
+  "If this trip were a movie, what genre would it be so far?",
+  "Pick a theme song for Andrew. Pick one for Quinn.",
+  "If you had one extra day anywhere on this route, where would it go?",
+  "Rank today's three best moments in order.",
+  "Pitch tomorrow's plan like it's a movie trailer voiceover.",
+  "Debate: window seat vs. driver seat — who has it better?",
+  "Come up with a group chat name for this trip."
+];
+
+const ARTISTS = [
+  {name:"Carol Ades", albums:["Late Start","Worst Person In The World"]},
+  {name:"Lizzy McAlpine", albums:["Give Me a Minute","Five Seconds Flat","Older"]},
+  {name:"Slayyter", albums:["Troubled Paradise","STARFUCKER","Worst Girl in America"]},
+  {name:"Holly Humberstone", albums:["Paint My Bedroom Black","Cruel World"]},
+  {name:"Jensen McRae", albums:["Are You Happy Now?","I Don't Know How but They Found Me!"]},
+  {name:"YEBBA", albums:["Dawn","Jean"]},
+  {name:"Finneas", albums:["Optimist","For Cryin' Out Loud!"]},
+  {name:"Taylor Swift", albums:["Fearless","Red","1989","Folklore","Midnights","The Tortured Poets Department","The Life of a Showgirl"]},
+  {name:"Gracie Abrams", albums:["Good Riddance","The Secret of Us","Daughter from Hell"]},
+  {name:"Aubory Bugg", albums:["Her newest singles (debut album on the way)"]},
+  {name:"Devon Again", albums:["In Order","Cherry Cola / Sunburn"]},
+  {name:"Ryan Beatty", albums:["Boy in Jeans","Dreaming of David","Calico","Sweet Fortune"]},
+  {name:"Tiny Habits", albums:["All For Something","Keepers"]},
+  {name:"Eileen Alister", albums:["Honeymoon in a Motel","Room Service"]},
+  {name:"Alessi Rose", albums:["Rumination as Ritual","For Your Validation","Voyeur"]},
+  {name:"Olivia Rodrigo", albums:["Sour","Guts","you seem pretty sad for a girl so in love"]},
+  {name:"Maisie Peters", albums:["You Signed Up For This","The Good Witch","Florescence"]},
+  {name:"Little Mix", albums:["DNA","Salute","Glory Days","LM5","Confetti"]},
+  {name:"Noah Kahan", albums:["Busyhead","Stick Season","The Great Divide"]},
+  {name:"Conan Gray", albums:["Kid Krow","Superache","Found Heaven","Wishbone"]},
+  {name:"Kim Petras", albums:["Clarity","Feed the Beast","Detour"]},
+  {name:"Nessa Barrett", albums:["Young Forever","Aftercare","Tough Love"]},
+  {name:"Caroline Polachek", albums:["Pang","Desire, I Want to Turn Into You"]},
+  {name:"Madonna", albums:["Like a Prayer","Ray of Light","Confessions on a Dance Floor","Madame X","Confessions II"]},
+  {name:"Daniel Seavey", albums:["Dancing In The Dark","Second Wind"]},
+  {name:"Jacob Collier", albums:["Djesse Vol. 1","Djesse Vol. 2","Djesse Vol. 3","Djesse Vol. 4","The Light For Days"]}
+];
+
+const PODCAST_SHOWS = ["Stuff You Should Know", "Swiftologist"];
+
+const PODCAST_IDEAS = [
+  "True crime deep-dive — good for long, quiet highway stretches.",
+  "Comedy interview show — light and easy to dip in and out of.",
+  "History podcast on New England / colonial America — fits the route.",
+  "Business or self-improvement — for the early morning legs.",
+  "Fiction / audio drama — immersive for night driving.",
+  "News & culture roundup — catch up before a city day.",
+  "Travel & food podcast — get excited for the next stop.",
+  "Andrew's choice — no vetoes on this leg 🎙️",
+  "Quinn's choice — no vetoes on this leg 🎙️",
+  "Andrew picks, Quinn can't touch the phone until it's over 🚫📱",
+  "Quinn picks, Andrew can't touch the phone until it's over 🚫📱",
+  "Whoever won the last game picks — no negotiating."
+];
+
+const STATES = [
+  ["AL","🌊","Alabama"],["AK","🐻","Alaska"],["AZ","🌵","Arizona"],["AR","🌾","Arkansas"],
+  ["CA","🌴","California"],["CO","⛰️","Colorado"],["CT","🍁","Connecticut"],["DE","🏖️","Delaware"],
+  ["FL","🐊","Florida"],["GA","🍑","Georgia"],["HI","🌺","Hawaii"],["ID","🥔","Idaho"],
+  ["IL","🌽","Illinois"],["IN","🏁","Indiana"],["IA","🌽","Iowa"],["KS","🌻","Kansas"],
+  ["KY","🐎","Kentucky"],["LA","🎷","Louisiana"],["ME","🦞","Maine"],["MD","🦀","Maryland"],
+  ["MA","🍁","Massachusetts"],["MI","🚗","Michigan"],["MN","❄️","Minnesota"],["MS","🎺","Mississippi"],
+  ["MO","🎡","Missouri"],["MT","🏔️","Montana"],["NE","🌾","Nebraska"],["NV","🎰","Nevada"],
+  ["NH","🍁","New Hampshire"],["NJ","🎡","New Jersey"],["NM","🌶️","New Mexico"],["NY","🗽","New York"],
+  ["NC","🏔️","North Carolina"],["ND","🌾","North Dakota"],["OH","🌰","Ohio"],["OK","🛢️","Oklahoma"],
+  ["OR","🌲","Oregon"],["PA","🔔","Pennsylvania"],["RI","⚓","Rhode Island"],["SC","🌴","South Carolina"],
+  ["SD","🗿","South Dakota"],["TN","🎸","Tennessee"],["TX","⭐","Texas"],["UT","🏜️","Utah"],
+  ["VT","🍁","Vermont"],["VA","🏛️","Virginia"],["WA","🌲","Washington"],["WV","⛰️","West Virginia"],
+  ["WI","🧀","Wisconsin"],["WY","🐴","Wyoming"],["DC","🏛️","Washington D.C."]
+];
+
+const PACKING = [
+  {category:"Clothing", items:["Layers for fall weather","Warm jacket","Scarf / beanie","Gloves","Rain jacket","Comfortable walking shoes","Swim trunks (Rehoboth)","Pajamas","One nice outfit (Boston / NYC dinner)"]},
+  {category:"Documents & Money", items:["Driver's license / ID","Hotel confirmations","Credit & debit cards","Cash for tolls & parking","Car insurance card"]},
+  {category:"Electronics", items:["Phone chargers","Portable battery pack","Aux cable / Bluetooth adapter","Camera","Headphones"]},
+  {category:"Toiletries & Health", items:["Toothbrush & toothpaste","Medications","Sunscreen","Contacts / glasses","Basic first-aid items"]},
+  {category:"Car & Road Essentials", items:["Phone mount","Snacks & water","Reusable water bottles","Umbrella","Small cooler","Trash bags"]}
+];
+
+/* ===================== NAVIGATION ===================== */
+let currentDayIndex = null;
+
+function navigate(tab){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('topbar').style.display = tab==='home' ? 'none' : 'flex';
+  document.getElementById('tabbar').classList.toggle('hidden', tab==='home' || tab==='map');
+
+  if(tab==='daydetail'){
+    document.getElementById('view-daydetail').classList.add('active');
+  } else {
+    const el = document.getElementById('view-'+tab);
+    if(el) el.classList.add('active');
+  }
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab===tab || (tab==='daydetail' && b.dataset.tab==='daily'));
+  });
+  window.scrollTo(0,0);
+  if(tab==='map') setTimeout(initMap, 50);
+  if(tab==='home'){ renderTripProgress(); renderHomePeek(); }
+  location.hash = tab;
+}
+function goHome(){ navigate('home'); }
+
+/* ===================== MAP ===================== */
+let mapInited = false;
+function initMap(){
+  if(mapInited) return;
+  mapInited = true;
+  try{
+    if(typeof L === 'undefined') throw new Error('Leaflet failed to load');
+    const map = L.map('leaflet-map', {zoomControl:true}).setView([41.5,-75],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'&copy; OpenStreetMap contributors', maxZoom:18
+    }).addTo(map);
+
+    const latlngs = TRIP.map(d=>[d.lat,d.lng]);
+    L.polyline(latlngs, {color:'#C1502E', weight:4, opacity:0.85, dashArray:'6 8'}).addTo(map);
+
+    TRIP.forEach((d,i)=>{
+      const icon = L.divIcon({
+        className:'', html:`<div style="background:linear-gradient(135deg,#E08E45,#C1502E);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${d.day}</div>`,
+        iconSize:[28,28], iconAnchor:[14,14]
+      });
+      L.marker([d.lat,d.lng], {icon}).addTo(map)
+        .bindPopup(`<b>Day ${d.day} · ${d.date}</b><br>${d.route}<br><i>${d.stay.name}</i>`);
+    });
+    // guard against zero-size container at init time (view was just switched to visible)
+    setTimeout(()=>map.invalidateSize(), 150);
+    setTimeout(()=>map.invalidateSize(), 500);
+  } catch(err){
+    mapInited = false;
+    document.getElementById('leaflet-map').innerHTML =
+      '<div style="height:100%; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:var(--brown); font-size:0.9rem;">'
+      + 'Map tiles couldn\'t load (needs an internet connection). The full route and stay details are listed below.</div>';
+  }
+  renderStopList();
+}
+const DAY_GRADIENTS = [
+  'linear-gradient(135deg,var(--pumpkin),var(--rust))',
+  'linear-gradient(135deg,var(--forest),#324226)',
+  'linear-gradient(135deg,var(--mustard),var(--rust-dark))',
+  'linear-gradient(135deg,var(--maroon),#4a1d28)',
+  'linear-gradient(135deg,var(--rust),var(--maroon))',
+  'linear-gradient(135deg,var(--rust-dark),#5c2814)'
+];
+function renderStopList(){
+  const el = document.getElementById('stopList');
+  el.innerHTML = TRIP.map((d,i)=>`
+    <div class="stop" onclick="openDay(${i})" style="cursor:pointer;">
+      <div class="stop-num" style="background:${DAY_GRADIENTS[i%DAY_GRADIENTS.length]};">${d.day}</div>
+      <div class="stop-body">
+        <div class="day-tag">${d.date}</div>
+        <h4>${d.route}</h4>
+        <p>${d.desc}</p>
+        <div class="stay">🏨 ${d.stay.name}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ===================== DAILY ===================== */
+function renderDayCardList(){
+  const el = document.getElementById('dayCardList');
+  el.innerHTML = TRIP.map((d,i)=>`
+    <div class="day-card" onclick="openDay(${i})">
+      <div class="day-num" style="background:${DAY_GRADIENTS[i%DAY_GRADIENTS.length]};"><div class="d">${d.day}</div><div class="m">DAY</div></div>
+      <div class="day-card-body">
+        <div class="route">${d.route}</div>
+        <div class="meta">${d.date} ${d.driveHours ? '· 🚗 ~'+d.driveHours+'h' : '· 🚗 no drive'} · 🏨 ${d.stay.name}</div>
+      </div>
+      <div class="chevron">›</div>
+    </div>`).join('');
+}
+
+function formatDriveTime(hours){
+  if(!hours) return 'No driving today';
+  return `~${hours} hr${hours===1?'':'s'} on the road`;
+}
+function openDay(i){
+  currentDayIndex = i;
+  const d = TRIP[i];
+  const bucketKey = 'bucket_day'+d.day;
+  const notesKey = 'notes_day'+d.day;
+  let bucket = JSON.parse(localStorage.getItem(bucketKey) || 'null');
+  if(!bucket){
+    bucket = d.bucket.map(item=>({item, done:false}));
+    localStorage.setItem(bucketKey, JSON.stringify(bucket));
+  }
+  const notes = localStorage.getItem(notesKey) || '';
+
+  document.getElementById('view-daydetail').innerHTML = `
+    <div class="detail-hero">
+      <div class="day-tag">Day ${d.day} · ${d.date}</div>
+      <h2>${d.route}</h2>
+      <p>${d.desc}</p>
+    </div>
+    <div class="card">
+      <div class="info-row"><div class="ic">🚗</div><div class="txt"><b>Drive Time</b><span>${formatDriveTime(d.driveHours)} &middot; ~${d.miles.toLocaleString()} mi</span></div></div>
+      <div class="info-row"><div class="ic">📍</div><div class="txt"><b>Recommended Stops</b>${d.stops.map(s=>`<span style="display:block;">${s}</span>`).join('')}</div></div>
+      <div class="info-row"><div class="ic">🏨</div><div class="txt"><b>Evening Stay</b><span>${d.stay.name}</span><span style="display:block; opacity:0.8; font-size:0.85rem;">${d.stay.address}</span></div></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:1.05rem;">🎯 Bucket List</h3>
+      <div class="checklist" id="bucketList"></div>
+      <div class="add-row">
+        <input type="text" id="bucketInput" placeholder="Add a bucket list item...">
+        <button onclick="addBucketItem(${d.day})">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:1.05rem;">📝 Day Notes</h3>
+      <textarea class="notes" id="dayNotes" placeholder="Jot anything about today...">${notes}</textarea>
+    </div>
+    <div class="dayflip">
+      <button onclick="flipDay(-1)" ${i===0?'disabled style="opacity:0.35;"':''}>← Prev Day</button>
+      <button onclick="flipDay(1)" ${i===TRIP.length-1?'disabled style="opacity:0.35;"':''}>Next Day →</button>
+    </div>
+  `;
+  renderBucketList(d.day);
+  document.getElementById('dayNotes').addEventListener('input', e=>{
+    localStorage.setItem(notesKey, e.target.value);
+  });
+  navigate('daydetail');
+}
+function renderBucketList(day){
+  const key = 'bucket_day'+day;
+  const bucket = JSON.parse(localStorage.getItem(key) || '[]');
+  const el = document.getElementById('bucketList');
+  if(bucket.length===0){
+    el.innerHTML = '<p style="opacity:0.6; font-size:0.88rem;">No items yet — add your first idea below.</p>';
+    return;
+  }
+  el.innerHTML = bucket.map((b,idx)=>`
+    <label>
+      <input type="checkbox" ${b.done?'checked':''} onchange="toggleBucketItem(${day},${idx})">
+      <span style="${b.done?'text-decoration:line-through; opacity:0.5;':''}">${b.item}</span>
+    </label>`).join('');
+}
+function toggleBucketItem(day, idx){
+  const key = 'bucket_day'+day;
+  const bucket = JSON.parse(localStorage.getItem(key) || '[]');
+  bucket[idx].done = !bucket[idx].done;
+  localStorage.setItem(key, JSON.stringify(bucket));
+  renderBucketList(day);
+}
+function addBucketItem(day){
+  const input = document.getElementById('bucketInput');
+  const val = input.value.trim();
+  if(!val) return;
+  const key = 'bucket_day'+day;
+  const bucket = JSON.parse(localStorage.getItem(key) || '[]');
+  bucket.push({item:val, done:false});
+  localStorage.setItem(key, JSON.stringify(bucket));
+  input.value='';
+  renderBucketList(day);
+}
+function flipDay(delta){
+  const next = currentDayIndex + delta;
+  if(next>=0 && next<TRIP.length) openDay(next);
+}
+
+/* ===================== GAMES ===================== */
+const GAME_CATEGORY_ORDER = ["Classic","Couple","Talk","Story","Word","Music","Scavenger","Reflex","Memory","Guess","Trivia","Silly","Bet","Debate"];
+const CATEGORY_COLORS = ['#4A5D3A','#C1502E','#D4A017','#6B2737','#E08E45','#9C3D22'];
+function renderGames(){
+  const groups = {};
+  GAMES.forEach(g=>{ (groups[g.tag] = groups[g.tag]||[]).push(g); });
+  const orderedTags = [...GAME_CATEGORY_ORDER.filter(t=>groups[t]), ...Object.keys(groups).filter(t=>!GAME_CATEGORY_ORDER.includes(t))];
+  document.getElementById('gamesList').innerHTML = orderedTags.map((tag,i)=>`
+    <div class="game-category">
+      <h3 class="game-category-head" style="background:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]};">${tag}</h3>
+      ${groups[tag].map(g=>`
+        <div class="game-card" style="border-left-color:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]};">
+          <h4>${g.name}</h4>
+          <p>${g.desc}</p>
+        </div>`).join('')}
+    </div>`).join('');
+}
+let lastGame;
+function shuffleGame(){
+  lastGame = pickRandom(GAMES, lastGame);
+  document.getElementById('gameResult').innerHTML = `<b>${lastGame.name} <span style="font-weight:600; opacity:0.8; font-size:0.85rem;">(${lastGame.tag})</span></b><br><span style="font-size:0.85rem; font-family:'Quicksand',sans-serif; opacity:0.9;">${lastGame.desc}</span>`;
+}
+
+/* ===================== GENERATORS ===================== */
+function pickRandom(arr, exclude){
+  let choice;
+  do{ choice = arr[Math.floor(Math.random()*arr.length)]; } while(arr.length>1 && choice===exclude);
+  return choice;
+}
+let lastBored, lastPodcast, lastArtist;
+function shuffleBored(){
+  lastBored = pickRandom(BORED_IDEAS, lastBored);
+  document.getElementById('boredResult').textContent = lastBored;
+}
+function shufflePodcast(){
+  lastPodcast = pickRandom(PODCAST_IDEAS, lastPodcast);
+  document.getElementById('podcastResult').textContent = lastPodcast;
+}
+const FLAVOR_TAGS = [
+  "", "", "", "",
+  " — Andrew's pick, no skips 🚫⏭️",
+  " — Quinn's pick, no skips 🚫⏭️",
+  " — Andrew's pick, no vetoes 🙅",
+  " — Quinn's pick, no vetoes 🙅",
+  " — full album, front to back, no exceptions",
+  " — DJ's choice, everyone rides along 🎶"
+];
+function shuffleArtist(){
+  const artist = pickRandom(ARTISTS, lastArtist);
+  lastArtist = artist;
+  const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
+  const flavor = FLAVOR_TAGS[Math.floor(Math.random()*FLAVOR_TAGS.length)];
+  document.getElementById('playlistResult').textContent = `🎧 ${album} by ${artist.name}${flavor}`;
+}
+function renderArtists(){
+  document.getElementById('artistChips').innerHTML = ARTISTS.map(a=>`<span class="chip">${a.name}</span>`).join('');
+}
+let lastShow;
+function shuffleShow(){
+  lastShow = pickRandom(PODCAST_SHOWS, lastShow);
+  document.getElementById('podcastResult').textContent = `🎙️ Play: ${lastShow}`;
+}
+function renderPodcasts(){
+  document.getElementById('podcastChips').innerHTML = PODCAST_SHOWS.map(p=>`<span class="chip">${p}</span>`).join('');
+}
+
+/* ===================== HOME STATS (countdown / miles / plates) ===================== */
+const TOTAL_MILES = TRIP.reduce((sum,d)=>sum+d.miles, 0);
+function renderTripProgress(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(TRIP[0].dateISO+'T00:00:00');
+  const end = new Date(TRIP[TRIP.length-1].dateISO+'T00:00:00');
+
+  let countdownHTML, milesTraveled, stopsHit;
+  if(today < start){
+    const daysLeft = Math.ceil((start-today)/86400000);
+    countdownHTML = `<b>${daysLeft}</b> day${daysLeft===1?'':'s'} until departure`;
+    milesTraveled = 0;
+    stopsHit = 0;
+  } else if(today > end){
+    countdownHTML = `🎉 Trip complete — hope it was a great one!`;
+    milesTraveled = TOTAL_MILES;
+    stopsHit = TRIP.length;
+  } else {
+    const dayNum = Math.floor((today-start)/86400000)+1;
+    countdownHTML = `🚗 On the road — Day <b>${dayNum}</b> of ${TRIP.length}`;
+    const reached = TRIP.filter(d=>new Date(d.dateISO+'T00:00:00')<=today);
+    milesTraveled = reached.reduce((sum,d)=>sum+d.miles,0);
+    stopsHit = reached.length;
+  }
+
+  const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
+  const platesCount = Object.values(found).filter(Boolean).length;
+
+  document.getElementById('tripProgressCard').innerHTML = `
+    <div class="tp-countdown">${countdownHTML}</div>
+    <div class="tp-stats">
+      <div class="tp-stat"><div class="v">${milesTraveled.toLocaleString()}</div><div class="l">Miles</div></div>
+      <div class="tp-stat"><div class="v">${stopsHit} / ${TRIP.length}</div><div class="l">Cities Visited</div></div>
+      <div class="tp-stat"><div class="v">${platesCount} / 51</div><div class="l">Plates</div></div>
+    </div>
+  `;
+}
+
+/* ===================== LICENSE PLATES ===================== */
+function stateSizeClass(name){
+  if(name.length<=7) return 'sz-lg';
+  if(name.length<=11) return 'sz-md';
+  if(name.length<=15) return 'sz-sm';
+  return 'sz-xs';
+}
+function renderPlates(){
+  const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
+  const grid = document.getElementById('plateGrid');
+  grid.innerHTML = STATES.map(([code,em,name])=>`
+    <div class="plate ${found[code]?'found':''}" onclick="togglePlate('${code}')">
+      <span class="em">${em}</span><span class="code ${stateSizeClass(name)}">${name}</span><span class="em">${em}</span>
+    </div>`).join('');
+  updatePlateCount(found);
+}
+function togglePlate(code){
+  const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
+  found[code] = !found[code];
+  localStorage.setItem('plates_found', JSON.stringify(found));
+  renderPlates();
+  renderTripProgress();
+}
+function updatePlateCount(found){
+  const n = Object.values(found).filter(Boolean).length;
+  document.getElementById('plateCount').textContent = `${n} / 51 found`;
+  document.getElementById('plateBar').style.width = (n/51*100)+'%';
+}
+function resetPlates(){
+  if(confirm('Reset all found plates?')){
+    localStorage.removeItem('plates_found');
+    renderPlates();
+  }
+}
+
+/* ===================== PACKING ===================== */
+function renderHomePeek(){
+  const bored = BORED_IDEAS[Math.floor(Math.random()*BORED_IDEAS.length)];
+  const game = GAMES[Math.floor(Math.random()*GAMES.length)];
+  const artist = ARTISTS[Math.floor(Math.random()*ARTISTS.length)];
+  const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
+  const show = PODCAST_SHOWS[Math.floor(Math.random()*PODCAST_SHOWS.length)];
+  document.getElementById('peekBored').textContent = bored;
+  document.getElementById('peekGame').innerHTML = `${game.name} <span style="font-size:0.72rem; font-weight:600; opacity:0.8;">(${game.tag})</span><span style="display:block; font-family:'Quicksand',sans-serif; font-size:0.78rem; font-weight:500; opacity:0.9; margin-top:4px; line-height:1.35;">${game.desc}</span>`;
+  document.getElementById('peekAlbum').textContent = `${album} — ${artist.name}`;
+  document.getElementById('peekPodcast').textContent = `Play: ${show}`;
+}
+
+function renderPacking(){
+  const checked = JSON.parse(localStorage.getItem('packing_checked') || '{}');
+  const list = document.getElementById('packingList');
+  let total = 0, done = 0;
+  list.innerHTML = PACKING.map((cat,i)=>{
+    const rows = cat.items.map(item=>{
+      const key = cat.category+'|'+item;
+      const isChecked = !!checked[key];
+      total++; if(isChecked) done++;
+      return `<label><input type="checkbox" ${isChecked?'checked':''} onchange="togglePacking('${key.replace(/'/g,"\\'")}')"><span style="${isChecked?'text-decoration:line-through; opacity:0.5;':''}">${item}</span></label>`;
+    }).join('');
+    return `<div class="card"><h3 class="game-category-head" style="background:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]}; font-size:0.7rem;">${cat.category}</h3><div class="checklist">${rows}</div></div>`;
+  }).join('');
+  document.getElementById('packCount').textContent = `${done} / ${total} packed`;
+  document.getElementById('packBar').style.width = (total? (done/total*100):0)+'%';
+}
+function togglePacking(key){
+  const checked = JSON.parse(localStorage.getItem('packing_checked') || '{}');
+  checked[key] = !checked[key];
+  localStorage.setItem('packing_checked', JSON.stringify(checked));
+  renderPacking();
+}
+function resetPacking(){
+  if(confirm('Reset the packing checklist?')){
+    localStorage.removeItem('packing_checked');
+    renderPacking();
+  }
+}
+
+/* ===================== INIT ===================== */
+renderDayCardList();
+renderGames();
+renderPlates();
+renderArtists();
+renderPodcasts();
+renderTripProgress();
+renderHomePeek();
+renderPacking();
+
+window.addEventListener('hashchange', ()=>{
+  const tab = location.hash.replace('#','') || 'home';
+  if(tab!=='daydetail') navigate(tab);
+});
+const startTab = location.hash.replace('#','');
+if(startTab && startTab!=='home') navigate(startTab);
+</script>
+</body>
+</html>
