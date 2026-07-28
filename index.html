@@ -220,6 +220,10 @@ button:active{transform:scale(0.92) rotate(-1.5deg);}
 .info-row .txt span{font-size:0.92rem;}
 .checklist label{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(107,39,55,0.08); font-size:0.94rem;}
 .checklist input{width:19px; height:19px; accent-color:var(--rust);}
+.checklist label.bucket-row .bucket-text{flex:1;}
+.bucket-trash{cursor:pointer; opacity:0.4; font-size:1.05rem; padding:2px 4px; margin-left:auto; transition:opacity .15s, transform .15s;}
+.bucket-trash:hover{opacity:0.9;}
+.bucket-trash:active{transform:scale(0.8);}
 .add-row{display:flex; gap:8px; margin-top:10px;}
 .add-row input{flex:1; padding:10px 12px; border-radius:10px; border:1px solid rgba(107,39,55,0.2); font-family:inherit; font-size:0.92rem;}
 .add-row button{background:var(--forest); color:#fff; border:none; border-radius:10px; padding:0 16px; font-weight:700; cursor:pointer;}
@@ -1095,20 +1099,37 @@ function renderBucketList(day){
   const key = 'bucket_day'+day;
   const bucket = JSON.parse(localStorage.getItem(key) || '[]');
   const el = document.getElementById('bucketList');
-  if(bucket.length===0){
+  const activeCount = bucket.filter(b=>!b.deleted).length;
+  if(activeCount===0){
     el.innerHTML = '<p style="opacity:0.6; font-size:0.88rem;">No items yet — add your first idea below.</p>';
     return;
   }
-  el.innerHTML = bucket.map((b,idx)=>`
-    <label>
+  el.innerHTML = bucket.map((b,idx)=>{
+    if(b.deleted) return '';
+    return `
+    <label class="bucket-row">
       <input type="checkbox" ${b.done?'checked':''} onchange="toggleBucketItem(${day},${idx})">
-      <span style="${b.done?'text-decoration:line-through; opacity:0.5;':''}">${b.item}</span>
-    </label>`).join('');
+      <span class="bucket-text" style="${b.done?'text-decoration:line-through; opacity:0.5;':''}">${b.item}</span>
+      <span class="bucket-trash" onclick="deleteBucketItem(${day},${idx})" title="Remove">🗑️</span>
+    </label>`;
+  }).join('');
 }
 function toggleBucketItem(day, idx){
   const key = 'bucket_day'+day;
   const bucket = JSON.parse(localStorage.getItem(key) || '[]');
   bucket[idx].done = !bucket[idx].done;
+  bucket[idx].updated = Date.now();
+  localStorage.setItem(key, JSON.stringify(bucket));
+  renderBucketList(day);
+  pushBucketToServer();
+}
+function deleteBucketItem(day, idx){
+  const key = 'bucket_day'+day;
+  const bucket = JSON.parse(localStorage.getItem(key) || '[]');
+  // tombstone rather than splice -- keeps the id around so the deletion
+  // itself can sync (a later "deleted" timestamp beats an older add/toggle
+  // from the other device, same last-write-wins rule as everything else)
+  bucket[idx].deleted = true;
   bucket[idx].updated = Date.now();
   localStorage.setItem(key, JSON.stringify(bucket));
   renderBucketList(day);
