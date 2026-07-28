@@ -84,7 +84,7 @@ button:active{transform:scale(0.92) rotate(-1.5deg);}
   padding:6px 16px; border-radius:999px; font-size:0.75rem; letter-spacing:1.5px;
   margin-bottom:14px; box-shadow:0 4px 10px rgba(0,0,0,0.2);
 }
-.hero h1{color:var(--cream); font-size:2.5rem; line-height:1.15; margin-bottom:8px; text-shadow:0 2px 12px rgba(0,0,0,0.2); max-width:100%;}
+.hero h1{color:var(--cream); font-size:2.15rem; line-height:1.15; margin-top:14px; margin-bottom:20px; text-shadow:0 2px 12px rgba(0,0,0,0.2); max-width:100%;}
 .hero p.sub{font-size:1.02rem; opacity:0.92; max-width:420px; margin:0 auto 22px;}
 .btn-primary{
   background:var(--mustard); color:var(--maroon); border:none;
@@ -104,6 +104,43 @@ button:active{transform:scale(0.92) rotate(-1.5deg);}
 .hero-progress-card .tp-stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;}
 .hero-progress-card .tp-stat{background:var(--cream2); border-radius:11px; padding:7px 3px; text-align:center;}
 .hero-progress-card .tp-stat .v{font-family:'Playfair Display',serif; font-size:0.98rem; font-weight:700; color:var(--rust-dark);}
+/* ---------- Today card (context-aware home) ---------- */
+.today-card{
+  background:linear-gradient(135deg,var(--forest),#2e3d24); border-radius:16px; padding:14px 18px 16px; margin-bottom:20px;
+  max-width:360px; width:100%; box-shadow:0 10px 26px rgba(0,0,0,0.28); color:#fff;
+}
+.today-card .today-tag{font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; opacity:0.7; margin-bottom:5px;}
+.today-card h3{font-family:'Playfair Display',serif; font-size:1.1rem; margin:0 0 16px; line-height:1.3; color:#fff;}
+.today-card .info-row{margin-bottom:14px; padding-bottom:0; border-bottom:none; align-items:center;}
+.today-card .info-row:last-of-type{margin-bottom:0;}
+.today-card .info-row .ic{font-size:1.3rem; opacity:0.95;}
+.today-card .info-row .txt b{display:block; color:rgba(255,255,255,0.6); font-size:0.66rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:3px;}
+.today-card .info-row .txt span{color:#fff; font-size:0.96rem; font-weight:600;}
+.btn-today{
+  margin-top:6px; width:100%; background:#fff; color:var(--forest); border:none; border-radius:11px; padding:11px; font-weight:700; cursor:pointer; font-size:0.9rem;
+  transition:transform .12s;
+}
+.btn-today:active{transform:scale(0.95);}
+/* ---------- Celebration (confetti + toast) ---------- */
+#confettiLayer{position:fixed; inset:0; pointer-events:none; z-index:9999; overflow:hidden;}
+.confetti-piece{position:absolute; top:-20px; width:9px; height:14px; opacity:0.9; border-radius:2px; animation:confettiFall linear forwards;}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg); opacity:1;}
+  100%{transform:translateY(110vh) rotate(720deg); opacity:0.25;}
+}
+.celebrate-toast{
+  position:fixed; left:50%; top:16%; transform:translate(-50%,-16px); z-index:10000;
+  background:linear-gradient(135deg,var(--maroon),var(--rust-dark)); color:#fff; padding:16px 24px; border-radius:16px;
+  font-family:'Playfair Display',serif; font-weight:700; font-size:1.02rem; text-align:center; box-shadow:0 12px 30px rgba(0,0,0,0.35);
+  opacity:0; transition:opacity .4s ease, transform .4s ease; max-width:82vw; pointer-events:none;
+}
+.celebrate-toast.show{opacity:1; transform:translate(-50%,0);}
+/* ---------- Shimmer loading state ---------- */
+.shimmer-text{
+  display:inline-block; background:linear-gradient(90deg, rgba(120,90,60,0.15) 25%, rgba(120,90,60,0.32) 50%, rgba(120,90,60,0.15) 75%);
+  background-size:200% 100%; animation:shimmerMove 1.3s ease-in-out infinite; border-radius:4px; color:transparent !important;
+}
+@keyframes shimmerMove{0%{background-position:200% 0;} 100%{background-position:-200% 0;}}
 .hero-progress-card .tp-stat .l{font-size:0.55rem; text-transform:uppercase; letter-spacing:0.3px; color:var(--brown); opacity:0.8; margin-top:1px;}
 
 .home-peek{padding:28px 18px 34px; max-width:520px; margin:0 auto;}
@@ -347,10 +384,16 @@ textarea.notes{
   <div class="hero">
     <div class="leaves">🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁 🍂 🍁</div>
     <div class="hero-badge">September 14–22, 2026</div>
-    <h1>Our 2026 NE Road Trip</h1>
-    <p class="sub">🧡 Your one-stop-shop for the road ahead 🧡</p>
+    <h1>Northeast Road Trip 2026</h1>
     <button class="btn-primary" onclick="navigate('map')">Explore the Trip →</button>
     <div class="hero-progress-card" id="tripProgressCard"></div>
+    <div class="today-card" id="todayCard" style="display:none;">
+      <div class="today-tag" id="todayTag"></div>
+      <h3 id="todayRoute"></h3>
+      <div class="info-row"><div class="ic">🚗</div><div class="txt"><b>Drive Time</b><span id="todayDrive"></span></div></div>
+      <div class="info-row" id="todayWeatherRow"><div class="ic">🌤️</div><div class="txt"><b>Weather</b><span class="shimmer-text">Checking forecast…</span></div></div>
+      <button class="btn-today" onclick="if(todayIndex!=null) openDay(todayIndex)">View Full Day →</button>
+    </div>
     <div class="hero-quickgrid">
       <div class="qg-item" onclick="navigate('daily')"><span class="ic">📅</span><span class="lb">Daily Plan</span></div>
       <div class="qg-item" onclick="navigate('bored')"><span class="ic">😴</span><span class="lb">I'm Bored</span></div>
@@ -1000,8 +1043,9 @@ const WEATHER_CODES = {
   95:['⛈️','Thunderstorm'], 96:['⛈️','Thunderstorm + hail'], 99:['⛈️','Thunderstorm + hail']
 };
 function weatherCacheKey(dateISO){ return 'weather_'+dateISO; }
-async function loadDayWeather(d){
-  const row = document.getElementById('weatherRow');
+async function loadDayWeather(d, targetId){
+  targetId = targetId || 'weatherRow';
+  const row = document.getElementById(targetId);
   if(!row) return;
   const setRow = (html)=>{ row.querySelector('.txt').innerHTML = html; };
 
@@ -1045,6 +1089,88 @@ function renderWeatherResult(result, setRow, d){
   setRow(`<b>Weather</b><span>${emoji} ${desc}, ${result.hi}°F / ${result.lo}°F${result.precip!=null ? ' &middot; '+result.precip+'% chance of precip' : ''}</span>`);
 }
 
+/* ===================== TACTILE TOUCHES ===================== */
+function haptic(ms){
+  if(navigator.vibrate){ try{ navigator.vibrate(ms||8); }catch(e){} }
+}
+function animateNumber(elId, to, suffix){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  suffix = suffix || '';
+  const from = parseInt((el.textContent||'0').replace(/,/g,''), 10) || 0;
+  if(from === to){ el.textContent = to.toLocaleString()+suffix; return; }
+  const duration = 650;
+  const startTime = performance.now();
+  function step(now){
+    const p = Math.min((now-startTime)/duration, 1);
+    const eased = 1 - Math.pow(1-p, 3);
+    const val = Math.round(from + (to-from)*eased);
+    el.textContent = val.toLocaleString()+suffix;
+    if(p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ===================== CELEBRATIONS ===================== */
+function celebrate(message){
+  let layer = document.getElementById('confettiLayer');
+  if(!layer){
+    layer = document.createElement('div');
+    layer.id = 'confettiLayer';
+    document.body.appendChild(layer);
+  }
+  const colors = ['#C1502E','#E08E45','#D4A017','#4A5D3A','#9C3D22','#6B2737'];
+  for(let i=0;i<48;i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = (Math.random()*100)+'vw';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDuration = (2.2+Math.random()*1.4)+'s';
+    p.style.animationDelay = (Math.random()*0.4)+'s';
+    layer.appendChild(p);
+    setTimeout(()=>p.remove(), 4200);
+  }
+
+  let toast = document.getElementById('celebrateToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'celebrateToast';
+    toast.className = 'celebrate-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(window._celebrateToastTimer);
+  window._celebrateToastTimer = setTimeout(()=>toast.classList.remove('show'), 3200);
+
+  haptic(20);
+}
+
+/* ===================== TODAY CARD (context-aware home) ===================== */
+/* TEMP PREVIEW: set to a day number (1-9) to force the "Today" card to show
+   on the home screen before the real trip dates arrive -- handy for eyeballing
+   how it'll look. Set back to null before the actual trip so the card goes
+   back to only showing on the real current day. Doesn't touch the countdown
+   or stats above it -- those still reflect the true date either way. */
+const PREVIEW_TODAY_DAY = null;
+let todayIndex = null;
+function renderTodayCard(dayNum){
+  const card = document.getElementById('todayCard');
+  if(!card) return;
+  if(dayNum==null || dayNum<1 || dayNum>TRIP.length){
+    card.style.display = 'none';
+    todayIndex = null;
+    return;
+  }
+  todayIndex = dayNum-1;
+  const d = TRIP[todayIndex];
+  card.style.display = 'block';
+  document.getElementById('todayTag').textContent = `Today · Day ${d.day} · ${d.date}`;
+  document.getElementById('todayRoute').textContent = d.route;
+  document.getElementById('todayDrive').textContent = `${formatDriveTime(d.driveHours)} · ~${d.miles.toLocaleString()} mi`;
+  loadDayWeather(d, 'todayWeatherRow');
+}
+
 function openDay(i){
   currentDayIndex = i;
   const d = TRIP[i];
@@ -1067,7 +1193,7 @@ function openDay(i){
       <div class="info-row"><div class="ic">🚗</div><div class="txt"><b>Drive Time</b><span>${formatDriveTime(d.driveHours)} &middot; ~${d.miles.toLocaleString()} mi</span></div></div>
       <div class="info-row"><div class="ic">📍</div><div class="txt"><b>Recommended Stops</b>${d.stops.map(s=>`<span style="display:block;">${s}</span>`).join('')}</div></div>
       <div class="info-row"><div class="ic">🏨</div><div class="txt"><b>Evening Stay</b><span>${d.stay.name}</span><span style="display:block; opacity:0.8; font-size:0.85rem;">${d.stay.address}</span></div></div>
-      <div class="info-row" id="weatherRow"><div class="ic">🌤️</div><div class="txt"><b>Weather</b><span>Checking forecast…</span></div></div>
+      <div class="info-row" id="weatherRow"><div class="ic">🌤️</div><div class="txt"><b>Weather</b><span class="shimmer-text">Checking forecast…</span></div></div>
     </div>
     <div class="card">
       <h3 style="font-size:1.05rem;">🎯 Bucket List</h3>
@@ -1114,6 +1240,17 @@ function renderBucketList(day){
     </label>`;
   }).join('');
 }
+function checkBucketCompletion(day, bucket){
+  const active = bucket.filter(b=>!b.deleted);
+  const allDone = active.length>0 && active.every(b=>b.done);
+  const flagKey = 'celebrated_bucket_day'+day;
+  if(allDone && localStorage.getItem(flagKey)!=='1'){
+    localStorage.setItem(flagKey,'1');
+    celebrate(`✅ Day ${day} bucket list complete!`);
+  } else if(!allDone){
+    localStorage.removeItem(flagKey);
+  }
+}
 function toggleBucketItem(day, idx){
   const key = 'bucket_day'+day;
   const bucket = JSON.parse(localStorage.getItem(key) || '[]');
@@ -1122,6 +1259,8 @@ function toggleBucketItem(day, idx){
   localStorage.setItem(key, JSON.stringify(bucket));
   renderBucketList(day);
   pushBucketToServer();
+  haptic();
+  checkBucketCompletion(day, bucket);
 }
 function deleteBucketItem(day, idx){
   const key = 'bucket_day'+day;
@@ -1134,6 +1273,8 @@ function deleteBucketItem(day, idx){
   localStorage.setItem(key, JSON.stringify(bucket));
   renderBucketList(day);
   pushBucketToServer();
+  haptic();
+  checkBucketCompletion(day, bucket);
 }
 function addBucketItem(day){
   const input = document.getElementById('bucketInput');
@@ -1144,6 +1285,8 @@ function addBucketItem(day){
   bucket.push({id:newBucketId(), item:val, done:false, updated:Date.now()});
   localStorage.setItem(key, JSON.stringify(bucket));
   input.value='';
+  haptic();
+  checkBucketCompletion(day, bucket);
   renderBucketList(day);
   pushBucketToServer();
 }
@@ -1173,6 +1316,7 @@ let lastGame;
 function shuffleGame(){
   lastGame = pickRandom(GAMES, lastGame);
   document.getElementById('gameResult').innerHTML = `<b>${lastGame.name} <span style="font-weight:600; opacity:0.8; font-size:0.85rem;">(${lastGame.tag})</span></b><br><span style="font-size:0.85rem; font-family:'Quicksand',sans-serif; opacity:0.9;">${lastGame.desc}</span>`;
+  haptic();
 }
 
 /* ===================== GENERATORS ===================== */
@@ -1185,10 +1329,12 @@ let lastBored, lastPodcast, lastArtist;
 function shuffleBored(){
   lastBored = pickRandom(BORED_IDEAS, lastBored);
   document.getElementById('boredResult').textContent = lastBored;
+  haptic();
 }
 function shufflePodcast(){
   lastPodcast = pickRandom(PODCAST_IDEAS, lastPodcast);
   document.getElementById('podcastResult').textContent = lastPodcast;
+  haptic();
 }
 const FLAVOR_TAGS = [
   "", "", "", "",
@@ -1205,6 +1351,7 @@ function shuffleArtist(){
   const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
   const flavor = FLAVOR_TAGS[Math.floor(Math.random()*FLAVOR_TAGS.length)];
   document.getElementById('playlistResult').textContent = `🎧 ${album} by ${artist.name}${flavor}`;
+  haptic();
 }
 function renderArtists(){
   document.getElementById('artistChips').innerHTML = ARTISTS.map(a=>`<span class="chip">${a.name}</span>`).join('');
@@ -1214,6 +1361,7 @@ let lastShow;
 function shuffleShow(){
   lastShow = pickRandom(PODCAST_SHOWS, lastShow);
   document.getElementById('podcastResult').innerHTML = `<b>🎙️ ${lastShow.name} <span style="font-weight:600; opacity:0.8; font-size:0.85rem;">(${lastShow.category})</span></b><br><span style="font-size:0.85rem; font-family:'Quicksand',sans-serif; opacity:0.9;">${lastShow.desc}</span>`;
+  haptic();
 }
 function renderPodcasts(){
   const groups = {};
@@ -1237,7 +1385,7 @@ function renderTripProgress(){
   const start = new Date(TRIP[0].dateISO+'T00:00:00');
   const end = new Date(TRIP[TRIP.length-1].dateISO+'T00:00:00');
 
-  let countdownHTML, milesTraveled, stopsHit;
+  let countdownHTML, milesTraveled, stopsHit, dayNumForToday = null;
   if(today < start){
     const daysLeft = Math.ceil((start-today)/86400000);
     countdownHTML = `<b>${daysLeft}</b> day${daysLeft===1?'':'s'} until departure`;
@@ -1253,19 +1401,36 @@ function renderTripProgress(){
     const reached = TRIP.filter(d=>new Date(d.dateISO+'T00:00:00')<=today);
     milesTraveled = reached.reduce((sum,d)=>sum+d.miles,0);
     stopsHit = reached.length;
+    dayNumForToday = dayNum;
+    if(dayNum===1 && localStorage.getItem('celebrated_trip_start')!=='1'){
+      localStorage.setItem('celebrated_trip_start','1');
+      celebrate("🚗 You're on the road — have an amazing trip!");
+    }
   }
 
   const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
   const platesCount = Object.values(found).filter(v=>v && v.found).length;
 
+  const prevMilesEl = document.getElementById('statMiles');
+  const prevMiles = prevMilesEl ? (parseInt((prevMilesEl.textContent||'0').replace(/,/g,''),10)||0) : 0;
+  const prevCitiesEl = document.getElementById('statCities');
+  const prevCities = prevCitiesEl ? (parseInt((prevCitiesEl.textContent||'0').replace(/,/g,''),10)||0) : 0;
+  const prevPlatesEl = document.getElementById('statPlates');
+  const prevPlates = prevPlatesEl ? (parseInt((prevPlatesEl.textContent||'0').replace(/,/g,''),10)||0) : 0;
+
   document.getElementById('tripProgressCard').innerHTML = `
     <div class="tp-countdown">${countdownHTML}</div>
     <div class="tp-stats">
-      <div class="tp-stat"><div class="v">${milesTraveled.toLocaleString()}</div><div class="l">Miles</div></div>
-      <div class="tp-stat"><div class="v">${stopsHit} / ${TRIP.length}</div><div class="l">Cities Visited</div></div>
-      <div class="tp-stat"><div class="v">${platesCount} / 51</div><div class="l">Plates</div></div>
+      <div class="tp-stat"><div class="v" id="statMiles">${prevMiles.toLocaleString()}</div><div class="l">Miles</div></div>
+      <div class="tp-stat"><div class="v" id="statCities">${prevCities} / ${TRIP.length}</div><div class="l">Cities Visited</div></div>
+      <div class="tp-stat"><div class="v" id="statPlates">${prevPlates} / 51</div><div class="l">Plates</div></div>
     </div>
   `;
+  animateNumber('statMiles', milesTraveled);
+  animateNumber('statCities', stopsHit, ' / '+TRIP.length);
+  animateNumber('statPlates', platesCount, ' / 51');
+
+  renderTodayCard(PREVIEW_TODAY_DAY != null ? PREVIEW_TODAY_DAY : dayNumForToday);
 }
 
 /* ===================== SYNC (shared by plates + bucket lists) ===================== */
@@ -1440,13 +1605,28 @@ function togglePlate(code){
   renderPlates();
   renderTripProgress();
   pushPlatesToServer();
+  haptic();
+}
+function checkPlateMilestone(n){
+  const key = 'celebrated_plate_milestones';
+  let celebrated = JSON.parse(localStorage.getItem(key) || '[]');
+  // drop any milestone above the current count -- if you dip back below one
+  // (e.g. a reset or an accidental untoggle), crossing it again later re-celebrates
+  celebrated = celebrated.filter(m=>m<=n);
+  const isMilestone = n>0 && (n%5===0 || n===51);
+  if(isMilestone && !celebrated.includes(n)){
+    celebrated.push(n);
+    celebrate(n===51 ? '🎉 All 51 plates found — road trip legends!' : `🎉 ${n} plates found!`);
+  }
+  localStorage.setItem(key, JSON.stringify(celebrated));
 }
 function updatePlateCount(found){
   const n = Object.values(found).filter(v=>v && v.found).length;
   const pct = Math.round(n/51*100);
-  document.getElementById('plateCountBig').textContent = n;
-  document.getElementById('platePctBig').textContent = pct+'%';
+  animateNumber('plateCountBig', n);
+  animateNumber('platePctBig', pct, '%');
   document.getElementById('plateBar').style.width = pct+'%';
+  checkPlateMilestone(n);
 }
 function resetPlates(){
   if(confirm('Reset all found plates?')){
