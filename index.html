@@ -448,6 +448,7 @@ textarea.notes{
       <span id="plateReset" style="cursor:pointer; opacity:0.6; font-weight:600; font-size:0.85rem;" onclick="resetPlates()">reset</span>
     </div>
     <div class="progress-bar-track"><div class="progress-bar-fill" id="plateBar" style="width:0%;"></div></div>
+    <div id="plateSyncStatus" style="margin-top:6px; font-size:0.72rem; font-weight:600; opacity:0.65; display:flex; align-items:center; gap:4px; cursor:pointer;" onclick="syncPlatesFromServer(true)">↻ tap to sync</div>
   </div>
   <div class="plate-grid" id="plateGrid"></div>
 </section>
@@ -854,6 +855,7 @@ function navigate(tab){
   window.scrollTo(0,0);
   if(tab==='map') setTimeout(initMap, 50);
   if(tab==='home'){ renderTripProgress(); renderHomePeek(); }
+  if(tab==='plates') syncPlatesFromServer(false);
   location.hash = tab;
 }
 function goHome(){ navigate('home'); }
@@ -949,7 +951,7 @@ function openDay(i){
   const notesKey = 'notes_day'+d.day;
   let bucket = JSON.parse(localStorage.getItem(bucketKey) || 'null');
   if(!bucket){
-    bucket = d.bucket.map(item=>({item, done:false}));
+    bucket = d.bucket.map(item=>({id:newBucketId(), item, done:false}));
     localStorage.setItem(bucketKey, JSON.stringify(bucket));
   }
   const notes = localStorage.getItem(notesKey) || '';
@@ -972,6 +974,7 @@ function openDay(i){
         <input type="text" id="bucketInput" placeholder="Add a bucket list item...">
         <button onclick="addBucketItem(${d.day})">Add</button>
       </div>
+      <div id="bucketSyncStatus" style="margin-top:8px; font-size:0.72rem; font-weight:600; opacity:0.65; cursor:pointer;" onclick="syncBucketFromServer()">↻ tap to sync</div>
     </div>
     <div class="card">
       <h3 style="font-size:1.05rem;">📝 Day Notes</h3>
@@ -987,6 +990,7 @@ function openDay(i){
     localStorage.setItem(notesKey, e.target.value);
   });
   navigate('daydetail');
+  syncBucketFromServer();
 }
 function renderBucketList(day){
   const key = 'bucket_day'+day;
@@ -1008,6 +1012,7 @@ function toggleBucketItem(day, idx){
   bucket[idx].done = !bucket[idx].done;
   localStorage.setItem(key, JSON.stringify(bucket));
   renderBucketList(day);
+  pushBucketToServer();
 }
 function addBucketItem(day){
   const input = document.getElementById('bucketInput');
@@ -1015,10 +1020,11 @@ function addBucketItem(day){
   if(!val) return;
   const key = 'bucket_day'+day;
   const bucket = JSON.parse(localStorage.getItem(key) || '[]');
-  bucket.push({item:val, done:false});
+  bucket.push({id:newBucketId(), item:val, done:false});
   localStorage.setItem(key, JSON.stringify(bucket));
   input.value='';
   renderBucketList(day);
+  pushBucketToServer();
 }
 function flipDay(delta){
   const next = currentDayIndex + delta;
@@ -1129,6 +1135,135 @@ function renderTripProgress(){
   `;
 }
 
+/* ===================== SYNC (shared by plates + bucket lists) ===================== */
+/* Two-device sync via a small Google Apps Script backend (see TripSync_AppsScript.gs).
+   Paste your deployed web app URL below (ends in /exec) to turn sync on.
+   Until then SYNC_URL stays blank and everything just works locally, per-device, as before. */
+const SYNC_URL = "https://script.google.com/macros/s/AKfycby7hlZ9A0vgXAUzQAGZ6pHA9wXZYrtyaOCWisJSFJVefiTNx8oyV6lxXD82QLibnmYTpg/exec";
+let platesSyncInFlight = false;
+let bucketSyncInFlight = false;
+
+function setSyncStatus(elId, text, opts){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.textContent = text;
+  el.style.opacity = (opts && opts.dim) ? '0.65' : '0.85';
+}
+
+/* ---- plates ---- */
+async function syncPlatesFromServer(manual){
+  if(!SYNC_URL){ setSyncStatus('plateSyncStatus', 'local only (no sync set up)', {dim:true}); return; }
+  if(platesSyncInFlight) return;
+  platesSyncInFlight = true;
+  setSyncStatus('plateSyncStatus', manual ? 'syncing…' : '↻ syncing…');
+  try{
+    const res = await fetch(SYNC_URL+'?type=plates', {method:'GET'});
+    const data = await res.json();
+    const serverPlates = Array.isArray(data.plates) ? data.plates : [];
+    const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
+    serverPlates.forEach(code=>{ found[code] = true; });
+    localStorage.setItem('plates_found', JSON.stringify(found));
+    renderPlates();
+    renderTripProgress();
+    setSyncStatus('plateSyncStatus', '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus('plateSyncStatus', 'offline — using local data', {dim:true});
+  } finally {
+    platesSyncInFlight = false;
+  }
+}
+
+async function pushPlatesToServer(overwrite){
+  if(!SYNC_URL) return;
+  try{
+    const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
+    const plates = Object.keys(found).filter(code=>found[code]);
+    const res = await fetch(SYNC_URL, {
+      method:'POST',
+      body: JSON.stringify({type:'plates', plates, overwrite: !!overwrite})
+    });
+    const data = await res.json();
+    const serverPlates = Array.isArray(data.plates) ? data.plates : [];
+    // merge back in case the other device found something since our last sync
+    // (skip this on overwrite -- server now exactly matches what we just sent)
+    const merged = overwrite ? {} : JSON.parse(localStorage.getItem('plates_found') || '{}');
+    serverPlates.forEach(code=>{ merged[code] = true; });
+    localStorage.setItem('plates_found', JSON.stringify(merged));
+    renderPlates();
+    renderTripProgress();
+    setSyncStatus('plateSyncStatus', '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus('plateSyncStatus', 'offline — will retry next sync', {dim:true});
+  }
+}
+
+/* ---- bucket lists ---- */
+function newBucketId(){
+  return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+}
+function collectAllBucketData(){
+  const data = {};
+  TRIP.forEach(d=>{
+    const bucket = JSON.parse(localStorage.getItem('bucket_day'+d.day) || 'null');
+    if(bucket) data[d.day] = bucket;
+  });
+  return data;
+}
+function mergeBucketItems(local, server){
+  const byId = {};
+  local.forEach(item=>{ if(item && item.id) byId[item.id] = {...item}; });
+  server.forEach(item=>{
+    if(!item || !item.id) return;
+    if(byId[item.id]){
+      byId[item.id].done = byId[item.id].done || item.done;
+    } else {
+      byId[item.id] = {...item};
+    }
+  });
+  return Object.values(byId);
+}
+function applyBucketData(serverBucket){
+  Object.keys(serverBucket||{}).forEach(dayStr=>{
+    const key = 'bucket_day'+dayStr;
+    const local = JSON.parse(localStorage.getItem(key) || 'null') || [];
+    const merged = mergeBucketItems(local, serverBucket[dayStr] || []);
+    localStorage.setItem(key, JSON.stringify(merged));
+  });
+}
+async function syncBucketFromServer(){
+  if(!SYNC_URL) return;
+  if(bucketSyncInFlight) return;
+  bucketSyncInFlight = true;
+  setSyncStatus('bucketSyncStatus', '↻ syncing…');
+  try{
+    const res = await fetch(SYNC_URL+'?type=bucket', {method:'GET'});
+    const data = await res.json();
+    applyBucketData(data.bucket || {});
+    if(currentDayIndex!=null) renderBucketList(TRIP[currentDayIndex].day);
+    setSyncStatus('bucketSyncStatus', '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus('bucketSyncStatus', 'offline — using local data', {dim:true});
+  } finally {
+    bucketSyncInFlight = false;
+  }
+}
+async function pushBucketToServer(){
+  if(!SYNC_URL) return;
+  try{
+    const payload = collectAllBucketData();
+    const res = await fetch(SYNC_URL, {
+      method:'POST',
+      body: JSON.stringify({type:'bucket', bucket: payload})
+    });
+    const data = await res.json();
+    applyBucketData(data.bucket || {});
+    if(currentDayIndex!=null) renderBucketList(TRIP[currentDayIndex].day);
+    setSyncStatus('bucketSyncStatus', '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus('bucketSyncStatus', 'offline — will retry next sync', {dim:true});
+  }
+}
+
 /* ===================== LICENSE PLATES ===================== */
 function stateSizeClass(name){
   if(name.length<=7) return 'sz-lg';
@@ -1151,6 +1286,7 @@ function togglePlate(code){
   localStorage.setItem('plates_found', JSON.stringify(found));
   renderPlates();
   renderTripProgress();
+  pushPlatesToServer();
 }
 function updatePlateCount(found){
   const n = Object.values(found).filter(Boolean).length;
@@ -1161,6 +1297,7 @@ function resetPlates(){
   if(confirm('Reset all found plates?')){
     localStorage.removeItem('plates_found');
     renderPlates();
+    pushPlatesToServer(true);
   }
 }
 
@@ -1215,6 +1352,7 @@ renderPodcasts();
 renderTripProgress();
 renderHomePeek();
 renderPacking();
+syncPlatesFromServer(false);
 
 window.addEventListener('hashchange', ()=>{
   const tab = location.hash.replace('#','') || 'home';
