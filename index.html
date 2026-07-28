@@ -951,7 +951,7 @@ function openDay(i){
   const notesKey = 'notes_day'+d.day;
   let bucket = JSON.parse(localStorage.getItem(bucketKey) || 'null');
   if(!bucket){
-    bucket = d.bucket.map(item=>({id:newBucketId(), item, done:false}));
+    bucket = d.bucket.map(item=>({id:newBucketId(), item, done:false, updated:0}));
     localStorage.setItem(bucketKey, JSON.stringify(bucket));
   }
   const notes = localStorage.getItem(notesKey) || '';
@@ -1010,6 +1010,7 @@ function toggleBucketItem(day, idx){
   const key = 'bucket_day'+day;
   const bucket = JSON.parse(localStorage.getItem(key) || '[]');
   bucket[idx].done = !bucket[idx].done;
+  bucket[idx].updated = Date.now();
   localStorage.setItem(key, JSON.stringify(bucket));
   renderBucketList(day);
   pushBucketToServer();
@@ -1020,7 +1021,7 @@ function addBucketItem(day){
   if(!val) return;
   const key = 'bucket_day'+day;
   const bucket = JSON.parse(localStorage.getItem(key) || '[]');
-  bucket.push({id:newBucketId(), item:val, done:false});
+  bucket.push({id:newBucketId(), item:val, done:false, updated:Date.now()});
   localStorage.setItem(key, JSON.stringify(bucket));
   input.value='';
   renderBucketList(day);
@@ -1123,7 +1124,7 @@ function renderTripProgress(){
   }
 
   const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
-  const platesCount = Object.values(found).filter(Boolean).length;
+  const platesCount = Object.values(found).filter(v=>v && v.found).length;
 
   document.getElementById('tripProgressCard').innerHTML = `
     <div class="tp-countdown">${countdownHTML}</div>
@@ -1150,7 +1151,21 @@ function setSyncStatus(elId, text, opts){
   el.style.opacity = (opts && opts.dim) ? '0.65' : '0.85';
 }
 
-/* ---- plates ---- */
+/* ---- plates ----
+   Each state is stored as {found:bool, updated:ms}. Sync merges per-code by
+   whichever side has the newer "updated" timestamp (last-write-wins), so
+   checking AND unchecking a plate both propagate -- not just a one-way
+   "once found, stays found" ratchet. */
+function mergePlateStates(local, server){
+  const merged = {...local};
+  Object.keys(server||{}).forEach(code=>{
+    const s = server[code];
+    const l = merged[code];
+    if(!s) return;
+    if(!l || (s.updated||0) > (l.updated||0)) merged[code] = s;
+  });
+  return merged;
+}
 async function syncPlatesFromServer(manual){
   if(!SYNC_URL){ setSyncStatus('plateSyncStatus', 'local only (no sync set up)', {dim:true}); return; }
   if(platesSyncInFlight) return;
@@ -1159,10 +1174,10 @@ async function syncPlatesFromServer(manual){
   try{
     const res = await fetch(SYNC_URL+'?type=plates', {method:'GET'});
     const data = await res.json();
-    const serverPlates = Array.isArray(data.plates) ? data.plates : [];
-    const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
-    serverPlates.forEach(code=>{ found[code] = true; });
-    localStorage.setItem('plates_found', JSON.stringify(found));
+    const serverPlates = (data.plates && typeof data.plates==='object' && !Array.isArray(data.plates)) ? data.plates : {};
+    const local = JSON.parse(localStorage.getItem('plates_found') || '{}');
+    const merged = mergePlateStates(local, serverPlates);
+    localStorage.setItem('plates_found', JSON.stringify(merged));
     renderPlates();
     renderTripProgress();
     setSyncStatus('plateSyncStatus', '✓ synced', {dim:true});
@@ -1176,18 +1191,17 @@ async function syncPlatesFromServer(manual){
 async function pushPlatesToServer(overwrite){
   if(!SYNC_URL) return;
   try{
-    const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
-    const plates = Object.keys(found).filter(code=>found[code]);
+    const local = JSON.parse(localStorage.getItem('plates_found') || '{}');
     const res = await fetch(SYNC_URL, {
       method:'POST',
-      body: JSON.stringify({type:'plates', plates, overwrite: !!overwrite})
+      body: JSON.stringify({type:'plates', plates: local, overwrite: !!overwrite})
     });
     const data = await res.json();
-    const serverPlates = Array.isArray(data.plates) ? data.plates : [];
-    // merge back in case the other device found something since our last sync
-    // (skip this on overwrite -- server now exactly matches what we just sent)
-    const merged = overwrite ? {} : JSON.parse(localStorage.getItem('plates_found') || '{}');
-    serverPlates.forEach(code=>{ merged[code] = true; });
+    const serverPlates = (data.plates && typeof data.plates==='object' && !Array.isArray(data.plates)) ? data.plates : {};
+    // on overwrite, the server now exactly matches what we just sent, so
+    // just trust our own local copy; otherwise merge back anything newer
+    // the other device pushed since our last sync
+    const merged = overwrite ? local : mergePlateStates(local, serverPlates);
     localStorage.setItem('plates_found', JSON.stringify(merged));
     renderPlates();
     renderTripProgress();
@@ -1210,15 +1224,14 @@ function collectAllBucketData(){
   return data;
 }
 function mergeBucketItems(local, server){
+  // last-write-wins per item, by "updated" timestamp -- so checking AND
+  // unchecking a bucket item both propagate, not just a one-way ratchet
   const byId = {};
   local.forEach(item=>{ if(item && item.id) byId[item.id] = {...item}; });
   server.forEach(item=>{
     if(!item || !item.id) return;
-    if(byId[item.id]){
-      byId[item.id].done = byId[item.id].done || item.done;
-    } else {
-      byId[item.id] = {...item};
-    }
+    const cur = byId[item.id];
+    if(!cur || (item.updated||0) > (cur.updated||0)) byId[item.id] = {...item};
   });
   return Object.values(byId);
 }
@@ -1275,21 +1288,22 @@ function renderPlates(){
   const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
   const grid = document.getElementById('plateGrid');
   grid.innerHTML = STATES.map(([code,em,name])=>`
-    <div class="plate ${found[code]?'found':''}" onclick="togglePlate('${code}')">
+    <div class="plate ${found[code] && found[code].found ? 'found' : ''}" onclick="togglePlate('${code}')">
       <span class="em">${em}</span><span class="code ${stateSizeClass(name)}">${name}</span><span class="em">${em}</span>
     </div>`).join('');
   updatePlateCount(found);
 }
 function togglePlate(code){
   const found = JSON.parse(localStorage.getItem('plates_found') || '{}');
-  found[code] = !found[code];
+  const cur = found[code] || {found:false, updated:0};
+  found[code] = {found: !cur.found, updated: Date.now()};
   localStorage.setItem('plates_found', JSON.stringify(found));
   renderPlates();
   renderTripProgress();
   pushPlatesToServer();
 }
 function updatePlateCount(found){
-  const n = Object.values(found).filter(Boolean).length;
+  const n = Object.values(found).filter(v=>v && v.found).length;
   document.getElementById('plateCount').textContent = `${n} / 51 found`;
   document.getElementById('plateBar').style.width = (n/51*100)+'%';
 }
