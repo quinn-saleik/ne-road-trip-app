@@ -3,12 +3,21 @@
 <head>
 <!--
   BACKLOG for next iteration:
-  - Visual/UI enhancements: end-of-trip recap screen, day-photo memories feature
-  - Budget tab: build out with real data (currently unbuilt/empty)
-  - DONE: route times + map re-matched against Quinn's real Google Maps PDFs
-    (TRIPLEG1: Nashville->Providence, TRIPLEG2: Providence->Nashville) for all
-    9 days -- mileage/driveHours updated throughout, Day 3 Maine loop order
-    corrected to Kennebunkport->Portland (was reversed), map re-snapped to match.
+  - Day-photo memories feature (end-of-trip recap screen explicitly declined --
+    do not build without Quinn asking again)
+  - Offline/PWA support so the map + itinerary + bucket lists still work
+    through cell dead zones (rural VT / Appalachia stretches)
+  - Trip cost split calculator (who paid for what, running tally of who owes
+    whom) -- would pair with the Budget tab
+  - Dark mode toggle
+  - Optional: live traffic-aware drive times via Mapbox/Google Directions API
+    (needs Quinn to set up a free API key with a card on file -- declined for
+    now, current drive times are static real-route estimates from Google Maps
+    PDFs, no live traffic)
+  DONE: route times + map re-matched against Quinn's real Google Maps PDFs
+    for all 9 days; Budget tab built with real numbers (gas/food/excursions/
+    souvenirs, live gas-cost estimate from actual route mileage); Spotify +
+    Apple Music search links added to the album shuffle generator.
 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
@@ -303,6 +312,12 @@ textarea.notes{
   margin-top:10px; background:var(--mustard); color:var(--maroon); border:none; border-radius:999px; padding:11px 26px;
   font-weight:700; font-size:0.95rem; cursor:pointer;
 }
+.music-links{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:2px;}
+.music-links a{
+  background:rgba(255,255,255,0.15); color:#fff; text-decoration:none; font-weight:700; font-size:0.78rem;
+  padding:6px 13px; border-radius:999px; border:1.5px solid rgba(255,255,255,0.4);
+}
+.music-links a:active{transform:scale(0.95);}
 
 /* ---------- Games ---------- */
 .game-category{margin-bottom:20px;}
@@ -333,6 +348,25 @@ textarea.notes{
 .plates-header-card .progress-bar-track{background:rgba(255,255,255,0.25);}
 .plates-header-card .progress-bar-fill{background:linear-gradient(90deg,var(--mustard),var(--pumpkin));}
 .phc-bottom{display:flex; justify-content:space-between; margin-top:10px; color:#fff;}
+.budget-header-card{
+  background:linear-gradient(135deg,var(--forest),#2e3d24); border-radius:18px; padding:18px 18px 14px; margin-bottom:14px;
+  color:#fff; box-shadow:var(--shadow);
+}
+.budget-header-card .progress-bar-track{background:rgba(255,255,255,0.25);}
+.budget-header-card .progress-bar-fill{background:linear-gradient(90deg,var(--mustard),var(--pumpkin));}
+.bh-row{display:flex; align-items:baseline; justify-content:space-between;}
+.bh-big{font-family:'Playfair Display',serif; font-weight:700; font-size:2rem; line-height:1;}
+.bh-of{font-family:'Quicksand',sans-serif; font-size:1.05rem; font-weight:600; opacity:0.75; margin-left:2px;}
+.bh-sub{font-family:'Quicksand',sans-serif; font-size:0.85rem; font-weight:700; opacity:0.92;}
+.bh-split{margin-top:10px; font-size:0.8rem; opacity:0.85; font-weight:600;}
+.budget-row-top{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;}
+.budget-label{font-weight:700; color:var(--rust-dark); font-size:0.98rem;}
+.budget-amounts{font-weight:700; font-size:0.92rem; white-space:nowrap;}
+.budget-amounts input{
+  width:64px; border:1.5px solid rgba(193,80,46,0.3); border-radius:8px; padding:4px 6px;
+  font-family:'Quicksand',sans-serif; font-weight:700; font-size:0.92rem; color:var(--text); text-align:right;
+}
+.budget-hint{font-size:0.78rem; opacity:0.65; margin-top:4px; line-height:1.35;}
 .us-map-wrap{background:var(--paper); border-radius:16px; padding:12px; box-shadow:var(--shadow); margin-bottom:14px;}
 .us-map-svg{width:100%; height:auto; display:block;}
 .us-state{fill:var(--cream2); stroke:var(--paper); stroke-width:1.2; cursor:pointer; transition:fill .2s;}
@@ -464,6 +498,7 @@ textarea.notes{
 <section class="view" id="view-playlist">
   <div class="generator-box">
     <div class="result" id="playlistResult">Tap shuffle for an album pick 🎧</div>
+    <div class="music-links" id="playlistLinks"></div>
     <button onclick="shuffleArtist()">Shuffle Album 🎤</button>
   </div>
   <div class="card">
@@ -540,8 +575,27 @@ textarea.notes{
   <div id="packingList"></div>
 </section>
 
+<!-- BUDGET -->
+<section class="view" id="view-budget">
+  <div class="budget-header-card">
+    <div class="bh-row">
+      <div><span class="bh-big" id="budgetSpentBig">$0</span><span class="bh-of"> / $1,300</span></div>
+      <div class="bh-sub" id="budgetRemainBig"></div>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="budgetBar" style="width:0%;"></div></div>
+    <div class="bh-split">Quinn contributed $900 &middot; Andrew contributed $400</div>
+  </div>
+  <div id="budgetCategoryList"></div>
+  <div style="text-align:center; margin-top:6px;"><span style="cursor:pointer; opacity:0.6; font-weight:600; font-size:0.85rem;" onclick="resetBudget()">reset all logged spending</span></div>
+</section>
+
 <!-- MORE -->
 <section class="view" id="view-more">
+  <div class="day-card" onclick="navigate('budget')" style="cursor:pointer;">
+    <div class="day-num" style="background:linear-gradient(135deg,var(--forest),#2e3d24);"><span style="font-size:1.4rem;">💰</span></div>
+    <div class="day-card-body"><div class="route">Trip Budget</div><div class="meta">Track spending vs. the plan</div></div>
+    <div class="chevron">›</div>
+  </div>
   <div class="day-card" onclick="navigate('playlist')" style="cursor:pointer;">
     <div class="day-num" style="background:linear-gradient(135deg,#8a5a3c,#4A3428);"><span style="font-size:1.4rem;">🎹</span></div>
     <div class="day-card-body"><div class="route">What to Listen To</div><div class="meta">Playlist ideas for the drive</div></div>
@@ -1358,12 +1412,21 @@ const FLAVOR_TAGS = [
   " — full album, front to back, no exceptions",
   " — DJ's choice, everyone rides along 🎶"
 ];
+function musicSearchLinks(artistName, album){
+  const q = encodeURIComponent(artistName + ' ' + album);
+  return {
+    spotify: `https://open.spotify.com/search/${q}`,
+    apple: `https://music.apple.com/search?term=${q}`
+  };
+}
 function shuffleArtist(){
   const artist = pickRandom(ARTISTS, lastArtist);
   lastArtist = artist;
   const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
   const flavor = FLAVOR_TAGS[Math.floor(Math.random()*FLAVOR_TAGS.length)];
+  const links = musicSearchLinks(artist.name, album);
   document.getElementById('playlistResult').textContent = `🎧 ${album} by ${artist.name}${flavor}`;
+  document.getElementById('playlistLinks').innerHTML = `<a href="${links.spotify}" target="_blank" rel="noopener">▶ Spotify</a><a href="${links.apple}" target="_blank" rel="noopener">🍎 Apple Music</a>`;
   haptic();
 }
 function renderArtists(){
@@ -1725,6 +1788,66 @@ function resetPacking(){
   }
 }
 
+/* ===================== BUDGET ===================== */
+const BUDGET = {
+  total: 1300,
+  contributions: [{name:"Quinn", amount:900}, {name:"Andrew", amount:400}],
+  categories: [
+    {key:"hotels", label:"Hotels", emoji:"🏨", budgeted:0, note:"Already booked with Quinn's credit card points — not part of the cash budget."},
+    {key:"gas", label:"Gas", emoji:"⛽", budgeted:300},
+    {key:"food", label:"Food", emoji:"🍽️", budgeted:650},
+    {key:"excursions", label:"Excursions", emoji:"🎟️", budgeted:200},
+    {key:"souvenirs", label:"Souvenirs", emoji:"🛍️", budgeted:150}
+  ]
+};
+const CAR_MPG = 50;
+const GAS_PRICE_PER_GAL = 3.95; // rough estimate -- adjust here if real prices shift before the trip
+function renderBudget(){
+  const spent = JSON.parse(localStorage.getItem('budget_spent') || '{}');
+  let totalSpent = 0;
+  BUDGET.categories.forEach(c=>{ totalSpent += Number(spent[c.key])||0; });
+  const remaining = BUDGET.total - totalSpent;
+  document.getElementById('budgetSpentBig').textContent = '$'+totalSpent.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('budgetRemainBig').textContent = remaining>=0
+    ? `$${remaining.toLocaleString(undefined,{maximumFractionDigits:0})} remaining`
+    : `$${Math.abs(remaining).toLocaleString(undefined,{maximumFractionDigits:0})} over budget`;
+  const barPct = BUDGET.total ? Math.min(100, totalSpent/BUDGET.total*100) : 0;
+  const bar = document.getElementById('budgetBar');
+  bar.style.width = barPct+'%';
+  bar.style.background = remaining<0 ? 'linear-gradient(90deg,#C1502E,#6B2737)' : '';
+
+  const estGasCost = Math.round(TOTAL_MILES/CAR_MPG*GAS_PRICE_PER_GAL);
+
+  document.getElementById('budgetCategoryList').innerHTML = BUDGET.categories.map(c=>{
+    const val = Number(spent[c.key])||0;
+    const pct = c.budgeted>0 ? Math.min(100, val/c.budgeted*100) : (val>0?100:0);
+    const over = c.budgeted>0 && val>c.budgeted;
+    return `
+    <div class="card">
+      <div class="budget-row-top">
+        <span class="budget-label">${c.emoji} ${c.label}</span>
+        <span class="budget-amounts">$<input type="number" min="0" step="1" value="${val||''}" placeholder="0" onchange="updateBudgetSpent('${c.key}', this.value)"> / $${c.budgeted.toLocaleString()}</span>
+      </div>
+      ${c.key==='gas' ? `<div class="budget-hint">≈$${estGasCost} estimated for the full route at ${CAR_MPG} mpg &middot; ~$${GAS_PRICE_PER_GAL.toFixed(2)}/gal (${TOTAL_MILES.toLocaleString()} mi total)</div>` : ''}
+      ${c.note ? `<div class="budget-hint">${c.note}</div>` : ''}
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%; ${over?'background:linear-gradient(90deg,#C1502E,#6B2737);':''}"></div></div>
+    </div>`;
+  }).join('');
+}
+function updateBudgetSpent(key, val){
+  const spent = JSON.parse(localStorage.getItem('budget_spent') || '{}');
+  spent[key] = Math.max(0, Number(val)||0);
+  localStorage.setItem('budget_spent', JSON.stringify(spent));
+  renderBudget();
+  haptic();
+}
+function resetBudget(){
+  if(confirm('Reset all logged spending?')){
+    localStorage.removeItem('budget_spent');
+    renderBudget();
+  }
+}
+
 /* ===================== INIT ===================== */
 renderDayCardList();
 renderGames();
@@ -1734,6 +1857,7 @@ renderPodcasts();
 renderTripProgress();
 renderHomePeek();
 renderPacking();
+renderBudget();
 syncPlatesFromServer(false);
 
 window.addEventListener('hashchange', ()=>{
