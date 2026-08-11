@@ -1233,7 +1233,6 @@ function openDay(i){
   currentDayIndex = i;
   const d = TRIP[i];
   const bucketKey = 'bucket_day'+d.day;
-  const notesKey = 'notes_day'+d.day;
   let bucket = JSON.parse(localStorage.getItem(bucketKey) || 'null');
   if(!bucket){
     // stable, deterministic ids for the default/seed items (day + position),
@@ -1248,7 +1247,7 @@ function openDay(i){
   // default items left over from before ids were stabilized
   bucket = migrateBucketArray(d.day, bucket);
   localStorage.setItem(bucketKey, JSON.stringify(bucket));
-  const notes = localStorage.getItem(notesKey) || '';
+  const notes = getDayNotes(d.day).text;
 
   document.getElementById('view-daydetail').innerHTML = `
     <div class="detail-hero">
@@ -1274,6 +1273,7 @@ function openDay(i){
     <div class="card">
       <h3 style="font-size:1.05rem;">📝 Day Notes</h3>
       <textarea class="notes" id="dayNotes" placeholder="Jot anything about today...">${notes}</textarea>
+      <div id="notesSyncStatus" style="margin-top:8px; font-size:0.72rem; font-weight:600; opacity:0.65; cursor:pointer;" onclick="syncNotesFromServer()">↻ tap to sync</div>
     </div>
     <div class="dayflip">
       <button onclick="flipDay(-1)" ${i===0?'disabled style="opacity:0.35;"':''}>← Prev Day</button>
@@ -1282,10 +1282,12 @@ function openDay(i){
   `;
   renderBucketList(d.day);
   document.getElementById('dayNotes').addEventListener('input', e=>{
-    localStorage.setItem(notesKey, e.target.value);
+    setDayNotes(d.day, e.target.value);
+    pushNotesToServer();
   });
   navigate('daydetail');
   syncBucketFromServer();
+  syncNotesFromServer();
   loadDayWeather(d);
 }
 function renderBucketList(day){
@@ -1682,6 +1684,98 @@ async function pushBucketToServer(){
   } catch(err){
     setSyncStatus('bucketSyncStatus', 'offline — will retry next sync', {dim:true});
   }
+}
+
+/* ---- day notes ---- */
+function getDayNotes(day){
+  const raw = localStorage.getItem('notes_day'+day);
+  if(!raw) return {text:'', updated:0};
+  try{
+    const parsed = JSON.parse(raw);
+    if(parsed && typeof parsed==='object' && 'text' in parsed) return parsed;
+  } catch(e){}
+  // legacy plain-string format from before notes synced -- treat as
+  // already-existing local text with no timestamp, so any synced copy
+  // with a real timestamp will naturally win once compared
+  return {text:raw, updated:0};
+}
+function setDayNotes(day, text){
+  const obj = {text, updated:Date.now()};
+  localStorage.setItem('notes_day'+day, JSON.stringify(obj));
+  return obj;
+}
+function collectAllNotesData(){
+  const data = {};
+  TRIP.forEach(d=>{
+    const n = getDayNotes(d.day);
+    if(n.text) data[d.day] = n;
+  });
+  return data;
+}
+function mergeNotesData(local, server){
+  // last-write-wins per day, by "updated" timestamp -- same rule as
+  // plates/bucket items, so whichever device typed most recently wins
+  const merged = {};
+  Object.keys(local).forEach(day=>{ merged[day] = local[day]; });
+  Object.keys(server).forEach(day=>{
+    const inc = server[day];
+    const cur = merged[day];
+    if(!inc) return;
+    if(!cur || (inc.updated||0) > (cur.updated||0)) merged[day] = inc;
+  });
+  return merged;
+}
+function applyNotesData(serverNotes){
+  const merged = mergeNotesData(collectAllNotesData(), serverNotes||{});
+  Object.keys(merged).forEach(day=>{
+    localStorage.setItem('notes_day'+day, JSON.stringify(merged[day]));
+  });
+  return merged;
+}
+let notesSyncInFlight = false;
+async function syncNotesFromServer(){
+  if(!SYNC_URL) return;
+  if(notesSyncInFlight) return;
+  notesSyncInFlight = true;
+  setSyncStatus('notesSyncStatus', '↻ syncing…');
+  try{
+    const res = await fetch(SYNC_URL+'?type=notes', {method:'GET'});
+    const data = await res.json();
+    const merged = applyNotesData(data.notes || {});
+    if(currentDayIndex!=null){
+      const day = TRIP[currentDayIndex].day;
+      const ta = document.getElementById('dayNotes');
+      const fresh = merged[day] ? merged[day].text : '';
+      // never stomp on text the person is actively typing -- only refresh
+      // the box from a sync if it isn't focused right now
+      if(ta && document.activeElement!==ta && ta.value!==fresh) ta.value = fresh;
+    }
+    setSyncStatus('notesSyncStatus', '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus('notesSyncStatus', 'offline — using local notes', {dim:true});
+  } finally {
+    notesSyncInFlight = false;
+  }
+}
+let notesPushTimer = null;
+function pushNotesToServer(){
+  if(!SYNC_URL) return;
+  setSyncStatus('notesSyncStatus', 'typing…', {dim:true});
+  clearTimeout(notesPushTimer);
+  notesPushTimer = setTimeout(async ()=>{
+    try{
+      const payload = collectAllNotesData();
+      const res = await fetch(SYNC_URL, {
+        method:'POST',
+        body: JSON.stringify({type:'notes', notes: payload})
+      });
+      const data = await res.json();
+      applyNotesData(data.notes || {});
+      setSyncStatus('notesSyncStatus', '✓ synced', {dim:true});
+    } catch(err){
+      setSyncStatus('notesSyncStatus', 'offline — will retry next sync', {dim:true});
+    }
+  }, 900); // debounced -- pushes ~1s after typing stops, not per keystroke
 }
 
 /* ===================== LICENSE PLATES ===================== */
