@@ -1,5 +1,7 @@
 # Northeast Road Trip 2026
 
+Personal project — a full-stack-feeling app (live maps, weather, cross-device sync) built in one HTML file with zero build tooling, for a real trip.
+
 Just a fun personal project for a road trip (Sept 2026): Nashville → Pittsburgh → Vermont/New Hampshire → Maine → Boston → NYC → Princeton → Rehoboth Beach → Baltimore → home. Built to use during the trip.
 
 It's one plain `index.html` file, hosted for free on GitHub Pages. No build step, no npm, nothing to install.
