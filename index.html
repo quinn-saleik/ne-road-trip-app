@@ -17,7 +17,10 @@
   DONE: route times + map re-matched against Quinn's real Google Maps PDFs
     for all 9 days; Budget tab built with real numbers (gas/food/excursions/
     souvenirs, live gas-cost estimate from actual route mileage); Spotify +
-    Apple Music search links added to the album shuffle generator.
+    Apple Music search links added to the album shuffle generator; day notes
+    now sync cross-device; artists, podcast shows, and the packing list are
+    all now add/remove-able in the app and sync cross-device (same
+    tombstone/last-write-wins pattern as plates + bucket lists).
 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
@@ -291,9 +294,12 @@ textarea.notes{
 .empty-state .ic{font-size:1.8rem; display:block; margin-bottom:8px;}
 .chip-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
 .chip{
-  border-radius:6px; padding:6px 14px; font-size:0.85rem; font-weight:700; color:#fff;
-  box-shadow:0 2px 5px rgba(75,45,25,0.18);
+  border-radius:6px; padding:6px 10px 6px 14px; font-size:0.85rem; font-weight:700; color:#fff;
+  box-shadow:0 2px 5px rgba(75,45,25,0.18); display:inline-flex; align-items:center; gap:6px;
 }
+.chip-x{cursor:pointer; opacity:0.55; font-size:0.72rem; padding:2px 3px; transition:opacity .15s, transform .15s;}
+.chip-x:hover{opacity:1;}
+.chip-x:active{transform:scale(0.8);}
 .chip-row .chip:nth-child(6n+1){background:var(--rust); transform:rotate(-1.5deg);}
 .chip-row .chip:nth-child(6n+2){background:var(--forest); transform:rotate(1deg);}
 .chip-row .chip:nth-child(6n+3){background:var(--mustard); color:var(--maroon); transform:rotate(-0.5deg);}
@@ -504,6 +510,12 @@ textarea.notes{
   <div class="card">
     <h3 style="font-size:1.05rem;">🎤 The Lineup</h3>
     <div class="chip-row" id="artistChips"></div>
+    <div class="add-row">
+      <input type="text" id="newArtistName" placeholder="Artist name...">
+      <input type="text" id="newArtistAlbum" placeholder="Album (optional)" style="flex:0.8;">
+      <button onclick="addArtist()">Add</button>
+    </div>
+    <div id="artistSyncStatus" style="margin-top:8px; font-size:0.72rem; font-weight:600; opacity:0.65; cursor:pointer;" onclick="syncConfigFromServer('artists','artist_overrides',renderArtists)">↻ tap to sync</div>
   </div>
 </section>
 
@@ -517,6 +529,15 @@ textarea.notes{
     </div>
   </div>
   <div id="podcastChips"></div>
+  <div class="card">
+    <h3 style="font-size:1.05rem;">➕ Add a Show</h3>
+    <div class="add-row">
+      <input type="text" id="newPodcastName" placeholder="Show name...">
+      <input type="text" id="newPodcastCategory" placeholder="Category (optional)" style="flex:0.8;">
+      <button onclick="addPodcast()">Add</button>
+    </div>
+    <div id="podcastSyncStatus" style="margin-top:8px; font-size:0.72rem; font-weight:600; opacity:0.65; cursor:pointer;" onclick="syncConfigFromServer('podcasts','podcast_overrides',renderPodcasts)">↻ tap to sync</div>
+  </div>
 </section>
 
 <!-- GAMES -->
@@ -573,6 +594,15 @@ textarea.notes{
     <div class="progress-bar-track"><div class="progress-bar-fill" id="packBar" style="width:0%;"></div></div>
   </div>
   <div id="packingList"></div>
+  <div class="card">
+    <h3 style="font-size:1.05rem;">➕ Add an Item</h3>
+    <div class="add-row">
+      <input type="text" id="newPackItem" placeholder="Item name...">
+      <input type="text" id="newPackCategory" placeholder="Category (optional)" style="flex:0.8;">
+      <button onclick="addPackingItem()">Add</button>
+    </div>
+    <div id="packingSyncStatus" style="margin-top:8px; font-size:0.72rem; font-weight:600; opacity:0.65; cursor:pointer;" onclick="syncConfigFromServer('packing','packing_overrides',renderPacking)">↻ tap to sync</div>
+  </div>
 </section>
 
 <!-- BUDGET -->
@@ -886,7 +916,7 @@ const BORED_IDEAS = [
   "Come up with a group chat name for this trip."
 ];
 
-const ARTISTS = [
+const ARTISTS_BASE = [
   {name:"Carol Ades", albums:["Late Start","Worst Person In The World"]},
   {name:"Lizzy McAlpine", albums:["Give Me a Minute","Five Seconds Flat","Older"]},
   {name:"Slayyter", albums:["Troubled Paradise","STARFUCKER","Worst Girl in America"]},
@@ -915,7 +945,7 @@ const ARTISTS = [
   {name:"Jacob Collier", albums:["Djesse Vol. 1","Djesse Vol. 2","Djesse Vol. 3","Djesse Vol. 4","The Light For Days"]}
 ];
 
-const PODCAST_SHOWS = [
+const PODCAST_SHOWS_BASE = [
   {name:"Pod Save America", category:"Politics", desc:"Former Obama staffers on the daily political grind — sharp, plugged-in, unapologetically progressive."},
   {name:"Chapo Trap House", category:"Politics", desc:"The biggest leftist podcast by influence — comedy and commentary that mocks the right and centrist Dems alike."},
   {name:"Behind the Bastards", category:"Politics", desc:"Robert Evans digs into history's worst people and movements — a lot of right-wing extremism and fascism autopsies."},
@@ -964,7 +994,7 @@ const STATES = [
   ["WI","🧀","Wisconsin"],["WY","🐴","Wyoming"],["DC","🏛️","Washington D.C."]
 ];
 
-const PACKING = [
+const PACKING_BASE = [
   {category:"Clothing", items:["Layers for fall weather","Warm jacket","Scarf / beanie","Gloves","Rain jacket","Comfortable walking shoes","Swim trunks (Rehoboth)","Pajamas","One nice outfit (Boston / NYC dinner)"]},
   {category:"Documents & Money", items:["Driver's license / ID","Hotel confirmations","Credit & debit cards","Cash for tolls & parking","Car insurance card"]},
   {category:"Electronics", items:["Phone chargers","Portable battery pack","Aux cable / Bluetooth adapter","Camera","Headphones"]},
@@ -1421,37 +1451,128 @@ function musicSearchLinks(artistName, album){
     apple: `https://music.apple.com/search?term=${q}`
   };
 }
+/* ---- configurable artist list ---- */
+function effectiveArtists(){
+  const overrides = getOverrides('artist_overrides');
+  const seeded = ARTISTS_BASE.map((a,idx)=>{
+    const id = 'seed_artist_'+idx;
+    if(overrides[id] && overrides[id].deleted) return null;
+    return {id, name:a.name, albums:a.albums, custom:false};
+  }).filter(Boolean);
+  const custom = Object.values(overrides)
+    .filter(o=>o.custom && !o.deleted)
+    .sort((a,b)=>(a.updated||0)-(b.updated||0))
+    .map(o=>({id:o.id, name:o.name, albums:o.albums||[], custom:true}));
+  return [...seeded, ...custom];
+}
+function addArtist(){
+  const nameEl = document.getElementById('newArtistName');
+  const albumEl = document.getElementById('newArtistAlbum');
+  const name = (nameEl.value||'').trim();
+  if(!name) return;
+  const album = (albumEl.value||'').trim();
+  const overrides = getOverrides('artist_overrides');
+  const id = 'custom_'+newBucketId();
+  overrides[id] = {id, name, albums: album ? [album] : [], custom:true, deleted:false, updated:Date.now()};
+  saveOverrides('artist_overrides', overrides);
+  nameEl.value=''; albumEl.value='';
+  renderArtists();
+  pushConfigToServer('artists','artist_overrides',renderArtists);
+  haptic();
+}
+function removeArtist(id){
+  const overrides = getOverrides('artist_overrides');
+  overrides[id] = {...(overrides[id]||{}), id, deleted:true, updated:Date.now()};
+  saveOverrides('artist_overrides', overrides);
+  if(lastArtist && lastArtist.id===id) lastArtist = null;
+  renderArtists();
+  pushConfigToServer('artists','artist_overrides',renderArtists);
+  haptic();
+}
 function shuffleArtist(){
-  const artist = pickRandom(ARTISTS, lastArtist);
+  const pool = effectiveArtists();
+  if(!pool.length) return;
+  let artist;
+  do{ artist = pool[Math.floor(Math.random()*pool.length)]; } while(pool.length>1 && lastArtist && artist.id===lastArtist.id);
   lastArtist = artist;
-  const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
   const flavor = FLAVOR_TAGS[Math.floor(Math.random()*FLAVOR_TAGS.length)];
-  const links = musicSearchLinks(artist.name, album);
-  document.getElementById('playlistResult').textContent = `🎧 ${album} by ${artist.name}${flavor}`;
-  document.getElementById('playlistLinks').innerHTML = `<a href="${links.spotify}" target="_blank" rel="noopener">▶ Spotify</a><a href="${links.apple}" target="_blank" rel="noopener">🍎 Apple Music</a>`;
+  if(artist.albums && artist.albums.length){
+    const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
+    const links = musicSearchLinks(artist.name, album);
+    document.getElementById('playlistResult').textContent = `🎧 ${album} by ${artist.name}${flavor}`;
+    document.getElementById('playlistLinks').innerHTML = `<a href="${links.spotify}" target="_blank" rel="noopener">▶ Spotify</a><a href="${links.apple}" target="_blank" rel="noopener">🍎 Apple Music</a>`;
+  } else {
+    const links = musicSearchLinks(artist.name, '');
+    document.getElementById('playlistResult').textContent = `🎧 ${artist.name}${flavor}`;
+    document.getElementById('playlistLinks').innerHTML = `<a href="${links.spotify}" target="_blank" rel="noopener">▶ Spotify</a><a href="${links.apple}" target="_blank" rel="noopener">🍎 Apple Music</a>`;
+  }
   haptic();
 }
 function renderArtists(){
-  document.getElementById('artistChips').innerHTML = ARTISTS.map(a=>`<span class="chip">${a.name}</span>`).join('');
+  document.getElementById('artistChips').innerHTML = effectiveArtists().map(a=>
+    `<span class="chip">${a.name}<span class="chip-x" onclick="removeArtist('${a.id}')">✕</span></span>`
+  ).join('');
 }
 const PODCAST_CATEGORY_ORDER = ["Politics","Learning","NE / Road Trip","Supernatural / Mystery","Music Theory"];
 let lastShow;
+/* ---- configurable podcast show list ---- */
+function effectivePodcasts(){
+  const overrides = getOverrides('podcast_overrides');
+  const seeded = PODCAST_SHOWS_BASE.map((p,idx)=>{
+    const id = 'seed_podcast_'+idx;
+    if(overrides[id] && overrides[id].deleted) return null;
+    return {id, name:p.name, category:p.category, desc:p.desc, custom:false};
+  }).filter(Boolean);
+  const custom = Object.values(overrides)
+    .filter(o=>o.custom && !o.deleted)
+    .sort((a,b)=>(a.updated||0)-(b.updated||0))
+    .map(o=>({id:o.id, name:o.name, category:o.category||'New Picks', desc:o.desc||'Added by you — give it a shot on this leg.', custom:true}));
+  return [...seeded, ...custom];
+}
+function addPodcast(){
+  const nameEl = document.getElementById('newPodcastName');
+  const catEl = document.getElementById('newPodcastCategory');
+  const name = (nameEl.value||'').trim();
+  if(!name) return;
+  const category = (catEl.value||'').trim();
+  const overrides = getOverrides('podcast_overrides');
+  const id = 'custom_'+newBucketId();
+  overrides[id] = {id, name, category: category||'New Picks', custom:true, deleted:false, updated:Date.now()};
+  saveOverrides('podcast_overrides', overrides);
+  nameEl.value=''; catEl.value='';
+  renderPodcasts();
+  pushConfigToServer('podcasts','podcast_overrides',renderPodcasts);
+  haptic();
+}
+function removePodcast(id){
+  const overrides = getOverrides('podcast_overrides');
+  overrides[id] = {...(overrides[id]||{}), id, deleted:true, updated:Date.now()};
+  saveOverrides('podcast_overrides', overrides);
+  if(lastShow && lastShow.id===id) lastShow = null;
+  renderPodcasts();
+  pushConfigToServer('podcasts','podcast_overrides',renderPodcasts);
+  haptic();
+}
 function shuffleShow(){
-  lastShow = pickRandom(PODCAST_SHOWS, lastShow);
-  document.getElementById('podcastResult').innerHTML = `<b>🎙️ ${lastShow.name} <span style="font-weight:600; opacity:0.8; font-size:0.85rem;">(${lastShow.category})</span></b><br><span style="font-size:0.85rem; font-family:'Quicksand',sans-serif; opacity:0.9;">${lastShow.desc}</span>`;
+  const pool = effectivePodcasts();
+  if(!pool.length) return;
+  let show;
+  do{ show = pool[Math.floor(Math.random()*pool.length)]; } while(pool.length>1 && lastShow && show.id===lastShow.id);
+  lastShow = show;
+  document.getElementById('podcastResult').innerHTML = `<b>🎙️ ${show.name} <span style="font-weight:600; opacity:0.8; font-size:0.85rem;">(${show.category})</span></b><br><span style="font-size:0.85rem; font-family:'Quicksand',sans-serif; opacity:0.9;">${show.desc}</span>`;
   haptic();
 }
 function renderPodcasts(){
   const groups = {};
-  PODCAST_SHOWS.forEach(p=>{ (groups[p.category] = groups[p.category]||[]).push(p); });
+  effectivePodcasts().forEach(p=>{ (groups[p.category] = groups[p.category]||[]).push(p); });
   const orderedCats = [...PODCAST_CATEGORY_ORDER.filter(c=>groups[c]), ...Object.keys(groups).filter(c=>!PODCAST_CATEGORY_ORDER.includes(c))];
   document.getElementById('podcastChips').innerHTML = orderedCats.map((cat,i)=>`
     <div class="game-category">
       <h3 class="game-category-head" style="background:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]};">${cat}</h3>
       ${groups[cat].map(p=>`
-        <div class="game-card" style="border-left-color:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]};">
-          <h4>${p.name}</h4>
-          <p>${p.desc}</p>
+        <div class="game-card" style="border-left-color:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]}; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div><h4>${p.name}</h4><p>${p.desc}</p></div>
+          <span class="bucket-trash" onclick="removePodcast('${p.id}')">✕</span>
         </div>`).join('')}
     </div>`).join('');
 }
@@ -1778,6 +1899,72 @@ function pushNotesToServer(){
   }, 900); // debounced -- pushes ~1s after typing stops, not per keystroke
 }
 
+/* ---- configurable lists (artists / podcasts / packing) ----
+   Generic flat-map override system: seeded (built-in) entries get a stable
+   id like 'seed_artist_3' or 'seed_pack_1_5' (category index_item index),
+   custom entries get 'custom_<newBucketId()>'. An override entry is either
+   {id, ...customFields, custom:true, updated} for something you added, or
+   just {id, deleted:true, updated} as a tombstone marking a seed (or
+   custom) item removed -- same last-write-wins-by-"updated" merge rule as
+   plates/bucket/notes, so add + remove both propagate across devices. */
+function getOverrides(key){
+  return JSON.parse(localStorage.getItem(key) || '{}');
+}
+function saveOverrides(key, obj){
+  localStorage.setItem(key, JSON.stringify(obj));
+}
+function mergeOverrideMaps(local, server){
+  const merged = {...local};
+  Object.keys(server||{}).forEach(id=>{
+    const inc = server[id];
+    const cur = merged[id];
+    if(!inc) return;
+    if(!cur || (inc.updated||0) > (cur.updated||0)) merged[id] = inc;
+  });
+  return merged;
+}
+const CONFIG_STATUS_EL = {artists:'artistSyncStatus', podcasts:'podcastSyncStatus', packing:'packingSyncStatus'};
+let configSyncInFlight = {};
+async function syncConfigFromServer(type, storageKey, renderFn){
+  if(!SYNC_URL) return;
+  if(configSyncInFlight[type]) return;
+  configSyncInFlight[type] = true;
+  const statusEl = CONFIG_STATUS_EL[type];
+  setSyncStatus(statusEl, '↻ syncing…');
+  try{
+    const res = await fetch(SYNC_URL+'?type='+type, {method:'GET'});
+    const data = await res.json();
+    const serverMap = (data[type] && typeof data[type]==='object' && !Array.isArray(data[type])) ? data[type] : {};
+    const local = getOverrides(storageKey);
+    const merged = mergeOverrideMaps(local, serverMap);
+    saveOverrides(storageKey, merged);
+    renderFn();
+    setSyncStatus(statusEl, '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus(statusEl, 'offline — using local data', {dim:true});
+  } finally {
+    configSyncInFlight[type] = false;
+  }
+}
+async function pushConfigToServer(type, storageKey, renderFn){
+  if(!SYNC_URL) return;
+  const statusEl = CONFIG_STATUS_EL[type];
+  try{
+    const local = getOverrides(storageKey);
+    const body = {type: type};
+    body[type] = local;
+    const res = await fetch(SYNC_URL, { method:'POST', body: JSON.stringify(body) });
+    const data = await res.json();
+    const serverMap = (data[type] && typeof data[type]==='object' && !Array.isArray(data[type])) ? data[type] : {};
+    const merged = mergeOverrideMaps(local, serverMap);
+    saveOverrides(storageKey, merged);
+    renderFn();
+    setSyncStatus(statusEl, '✓ synced', {dim:true});
+  } catch(err){
+    setSyncStatus(statusEl, 'offline — will retry next sync', {dim:true});
+  }
+}
+
 /* ===================== LICENSE PLATES ===================== */
 function stateSizeClass(name){
   if(name.length<=7) return 'sz-lg';
@@ -1844,25 +2031,77 @@ function resetPlates(){
 function renderHomePeek(){
   const bored = BORED_IDEAS[Math.floor(Math.random()*BORED_IDEAS.length)];
   const game = GAMES[Math.floor(Math.random()*GAMES.length)];
-  const artist = ARTISTS[Math.floor(Math.random()*ARTISTS.length)];
-  const album = artist.albums[Math.floor(Math.random()*artist.albums.length)];
-  const show = PODCAST_SHOWS[Math.floor(Math.random()*PODCAST_SHOWS.length)];
+  const artistPool = effectiveArtists();
+  const artist = artistPool[Math.floor(Math.random()*artistPool.length)];
+  const album = (artist.albums && artist.albums.length) ? artist.albums[Math.floor(Math.random()*artist.albums.length)] : artist.name;
+  const podcastPool = effectivePodcasts();
+  const show = podcastPool[Math.floor(Math.random()*podcastPool.length)];
   document.getElementById('peekBored').textContent = bored;
   document.getElementById('peekGame').innerHTML = `${game.name} <span style="font-size:0.72rem; font-weight:600; opacity:0.8;">(${game.tag})</span><span style="display:block; font-family:'Quicksand',sans-serif; font-size:0.78rem; font-weight:500; opacity:0.9; margin-top:4px; line-height:1.35;">${game.desc}</span>`;
-  document.getElementById('peekAlbum').textContent = `${album} — ${artist.name}`;
+  document.getElementById('peekAlbum').textContent = album===artist.name ? artist.name : `${album} — ${artist.name}`;
   document.getElementById('peekPodcast').textContent = `Play: ${show.name}`;
 }
 
+/* ---- configurable packing list ----
+   The item LIST (add/remove) syncs across devices via packing_overrides,
+   same tombstone pattern as artists/podcasts. Whether an item is actually
+   checked off stays local-only (packing_checked) -- Quinn and Andrew are
+   packing separate bags, so "packed" isn't something that should sync. */
+function effectivePacking(){
+  const overrides = getOverrides('packing_overrides');
+  const groups = {};
+  const order = [];
+  PACKING_BASE.forEach((cat,ci)=>{
+    cat.items.forEach((item,ii)=>{
+      const id = 'seed_pack_'+ci+'_'+ii;
+      if(overrides[id] && overrides[id].deleted) return;
+      if(!groups[cat.category]){ groups[cat.category]=[]; order.push(cat.category); }
+      groups[cat.category].push({id, item});
+    });
+  });
+  Object.values(overrides)
+    .filter(o=>o.custom && !o.deleted)
+    .sort((a,b)=>(a.updated||0)-(b.updated||0))
+    .forEach(o=>{
+      const cat = o.category || 'Custom';
+      if(!groups[cat]){ groups[cat]=[]; order.push(cat); }
+      groups[cat].push({id:o.id, item:o.name});
+    });
+  return order.map(category=>({category, items:groups[category]}));
+}
+function addPackingItem(){
+  const nameEl = document.getElementById('newPackItem');
+  const catEl = document.getElementById('newPackCategory');
+  const name = (nameEl.value||'').trim();
+  if(!name) return;
+  const category = (catEl.value||'').trim();
+  const overrides = getOverrides('packing_overrides');
+  const id = 'custom_'+newBucketId();
+  overrides[id] = {id, name, category: category||'Custom', custom:true, deleted:false, updated:Date.now()};
+  saveOverrides('packing_overrides', overrides);
+  nameEl.value=''; catEl.value='';
+  renderPacking();
+  pushConfigToServer('packing','packing_overrides',renderPacking);
+  haptic();
+}
+function removePackingItem(id){
+  const overrides = getOverrides('packing_overrides');
+  overrides[id] = {...(overrides[id]||{}), id, deleted:true, updated:Date.now()};
+  saveOverrides('packing_overrides', overrides);
+  renderPacking();
+  pushConfigToServer('packing','packing_overrides',renderPacking);
+  haptic();
+}
 function renderPacking(){
   const checked = JSON.parse(localStorage.getItem('packing_checked') || '{}');
   const list = document.getElementById('packingList');
   let total = 0, done = 0;
-  list.innerHTML = PACKING.map((cat,i)=>{
-    const rows = cat.items.map(item=>{
+  list.innerHTML = effectivePacking().map((cat,i)=>{
+    const rows = cat.items.map(({id,item})=>{
       const key = cat.category+'|'+item;
       const isChecked = !!checked[key];
       total++; if(isChecked) done++;
-      return `<label><input type="checkbox" ${isChecked?'checked':''} onchange="togglePacking('${key.replace(/'/g,"\\'")}')"><span style="${isChecked?'text-decoration:line-through; opacity:0.5;':''}">${item}</span></label>`;
+      return `<label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" ${isChecked?'checked':''} onchange="togglePacking('${key.replace(/'/g,"\\'")}')"><span style="flex:1; ${isChecked?'text-decoration:line-through; opacity:0.5;':''}">${item}</span><span class="bucket-trash" onclick="removePackingItem('${id}')">✕</span></label>`;
     }).join('');
     return `<div class="card"><h3 class="game-category-head" style="background:${CATEGORY_COLORS[i%CATEGORY_COLORS.length]}; font-size:0.7rem;">${cat.category}</h3><div class="checklist">${rows}</div></div>`;
   }).join('');
@@ -1876,7 +2115,7 @@ function togglePacking(key){
   renderPacking();
 }
 function resetPacking(){
-  if(confirm('Reset the packing checklist?')){
+  if(confirm("Reset the packing checklist? (This only clears what's checked off, not your added/removed items.)")){
     localStorage.removeItem('packing_checked');
     renderPacking();
   }
@@ -1953,6 +2192,9 @@ renderHomePeek();
 renderPacking();
 renderBudget();
 syncPlatesFromServer(false);
+syncConfigFromServer('artists','artist_overrides',renderArtists);
+syncConfigFromServer('podcasts','podcast_overrides',renderPodcasts);
+syncConfigFromServer('packing','packing_overrides',renderPacking);
 
 window.addEventListener('hashchange', ()=>{
   const tab = location.hash.replace('#','') || 'home';
