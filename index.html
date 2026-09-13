@@ -53,6 +53,23 @@
     (Sept 13-22, 2026). Route geometry for the Nashville->Cincinnati and
     Cincinnati->Pittsburgh legs re-pulled from OSRM; mileage/drive-time on
     the new Day 1 and Day 2 recomputed to match.
+  Fixed: bucket-list items/day notes/celebration flags were cached by day
+    NUMBER, so after the renumbering above they stayed attached to their
+    old day slot instead of following their content (e.g. Salem's bucket
+    items were showing up on the Maine day). Added a one-time client-side
+    migration (migrateCincinnatiDayShift, runs once per device on load)
+    that shifts those cached keys to match the new numbering and
+    overwrites the shared sheet with the corrected mapping.
+  Fixed: Day 1/Day 2 drive times were pulled straight from OSRM's
+    `duration` field, which uses a generic/conservative speed profile and
+    runs noticeably slower than real-world interstate driving (every other
+    day's time came from Quinn's actual Google Maps PDFs, not OSRM).
+    Recomputed using a 70-75mph highway-average floor per Quinn's call
+    (75mph for the flatter Nashville->Cincinnati leg, 70mph for the
+    hillier Cincinnati->Pittsburgh leg approaching the Alleghenies) --
+    Day 1 now 3.9hr (was 5.5), Day 2 now 4.6hr (was 6.4). Also added
+    Louisville, KY as a potential stop on Day 1 (it's directly on the
+    I-65/I-71 route).
 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
@@ -693,14 +710,14 @@ textarea.notes{
 /* ===================== DATA ===================== */
 const TRIP = [
   {
-    day:1, date:"Sun, Sep 13", dateISO:"2026-09-13", miles:290, driveHours:5.5, route:"Nashville → Cincinnati, OH",
+    day:1, date:"Sun, Sep 13", dateISO:"2026-09-13", miles:290, driveHours:3.9, route:"Nashville → Cincinnati, OH",
     desc:"Leaving Nashville in the afternoon for a shorter first push north, overnighting just outside Cincinnati before the final leg into Pittsburgh the next morning.",
-    stops:["Bowling Green, KY (drive-through stop)"],
+    stops:["Bowling Green, KY (drive-through stop)","Louisville, KY (potential stop)"],
     stay:{name:"DoubleTree Suites by Hilton Cincinnati - Blue Ash", address:"6300 E Kemper Rd, Sharonville, OH 45241"},
     bucket:[], lat:39.2835, lng:-84.3706
   },
   {
-    day:2, date:"Mon, Sep 14", dateISO:"2026-09-14", miles:320, driveHours:6.4, route:"Cincinnati, OH → Pittsburgh, PA",
+    day:2, date:"Mon, Sep 14", dateISO:"2026-09-14", miles:320, driveHours:4.6, route:"Cincinnati, OH → Pittsburgh, PA",
     desc:"Morning drive out of the Cincinnati area with a stop through the Columbus corridor, a stop in Cranberry, PA to see grandma, then on to Pittsburgh before the night's stay. Dinner with Addie along the way.",
     stops:["Columbus (drive-through stop)","Cranberry, PA — visit with grandma","Pittsburgh, PA — afternoon","Dinner with Addie"],
     stay:{name:"Hampton Inn & Suites Blairsville", address:"62 Pine Ridge Road, Blairsville, PA 15717"},
@@ -1854,6 +1871,48 @@ async function pushBucketToServer(){
   }
 }
 
+/* One-time migration for the Sept 2026 Cincinnati-stop insertion: every
+   day number from the old 9-day itinerary shifted up by one (old day N is
+   now day N+1), but bucket-list items, day notes, and "bucket complete"
+   celebration flags are cached locally -- and synced to the shared sheet
+   -- keyed by the OLD day NUMBER, not by date or content. Without this,
+   old day 4's Salem/Boston data (for example) stays parked under the
+   "day4" key even though day 4 is now the Maine day. This walks those
+   keys down from 9 to 1 (descending, so a day's data isn't overwritten
+   before it's been read) so each day's saved bucket/notes/flag state
+   follows its actual content to the new day number, leaving the new
+   Day 1 (Cincinnati, a plain stop with no defaults) with nothing stale
+   attached to it. Then it overwrites (not merges) the shared sheet's
+   bucket + notes blobs with the corrected, re-keyed data, so the old
+   day-number associations don't get pulled back down on the next sync
+   from whichever phone runs this first. */
+function migrateCincinnatiDayShift(){
+  if(localStorage.getItem('cinci_day_shift_v1')==='1') return;
+  let changed = false;
+  for(let oldDay=9; oldDay>=1; oldDay--){
+    const newDay = oldDay+1;
+    ['bucket_day','notes_day','celebrated_bucket_day'].forEach(prefix=>{
+      const oldKey = prefix+oldDay;
+      const val = localStorage.getItem(oldKey);
+      if(val!=null){
+        localStorage.setItem(prefix+newDay, val);
+        localStorage.removeItem(oldKey);
+        changed = true;
+      }
+    });
+  }
+  localStorage.setItem('cinci_day_shift_v1','1');
+  if(changed && SYNC_URL){
+    // fire-and-forget: re-stabilize seed ids against each day's *new*
+    // content, then overwrite the server's copy outright so the stale
+    // old-day-numbered entries don't survive on the shared sheet
+    const bucketPayload = collectAllBucketData();
+    fetch(SYNC_URL, {method:'POST', body: JSON.stringify({type:'bucket', bucket: bucketPayload, overwrite:true})}).catch(()=>{});
+    const notesPayload = collectAllNotesData();
+    fetch(SYNC_URL, {method:'POST', body: JSON.stringify({type:'notes', notes: notesPayload, overwrite:true})}).catch(()=>{});
+  }
+}
+
 /* ---- day notes ---- */
 function getDayNotes(day){
   const raw = localStorage.getItem('notes_day'+day);
@@ -2229,6 +2288,7 @@ function resetBudget(){
 }
 
 /* ===================== INIT ===================== */
+migrateCincinnatiDayShift();
 renderDayCardList();
 renderGames();
 renderPlates();
