@@ -1,8 +1,6 @@
 # Northeast Road Trip 2026
 
-Personal project — a full-stack-feeling app (live maps, weather, cross-device sync) built in one HTML file with zero build tooling, for a real trip.
-
-Just a fun personal project for a road trip (Sept 2026): Nashville → Pittsburgh → Vermont/New Hampshire → Maine → Boston → NYC → Princeton → Rehoboth Beach → Baltimore → home. Built to use during the trip.
+Just a fun little site for a 10-day road trip (Sept 13–22, 2026): Nashville → Cincinnati → Pittsburgh → Vermont/New Hampshire → Maine → Boston → NYC → Princeton → Rehoboth Beach → Baltimore → home. Built for me and my partner to use on our phones during the trip.
 
 It's one plain `index.html` file, hosted for free on GitHub Pages. No build step, no npm, nothing to install.
 
@@ -10,8 +8,8 @@ It's one plain `index.html` file, hosted for free on GitHub Pages. No build step
 
 - Day-by-day itinerary with drive times, mileage, and stops
 - An actual map of the real driving route (not just straight lines between cities)
-- A license plate game (tap the states as you spot them, syncs between phones)
-- Per-day bucket lists to check off / add to / delete, also synced
+- A license plate game (tap the states as you spot them, syncs between our phones)
+- Per-day bucket lists we can check off / add to / delete, also synced
 - A rough budget tracker for the trip
 - Live weather once we're close enough to the date
 - Packing list, road trip games, a "what should we listen to" album picker (with Spotify/Apple Music links), and a podcast list
